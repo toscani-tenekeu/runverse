@@ -58,3 +58,22 @@ export function getSnippet(id: string): (Snippet & { expiresAt: number }) | unde
 }
 
 export const purgeExpired = () => Number(purge.run(Date.now()).changes);
+
+// People asking to be told when the public Runverse API launches.
+db.exec(`CREATE TABLE IF NOT EXISTS waitlist (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  email TEXT NOT NULL,
+  product TEXT NOT NULL,
+  monthly_requests TEXT NOT NULL,
+  message TEXT NOT NULL DEFAULT '',
+  created_at INTEGER NOT NULL,
+  UNIQUE (email, product)
+)`);
+
+const upsertWaitlist = db.prepare(`INSERT INTO waitlist (email, product, monthly_requests, message, created_at)
+  VALUES (?, ?, ?, ?, ?)
+  ON CONFLICT (email, product) DO UPDATE SET monthly_requests = excluded.monthly_requests, message = excluded.message`);
+
+export function joinWaitlist(entry: { email: string; product: string; monthlyRequests: string; message: string }) {
+  upsertWaitlist.run(entry.email, entry.product, entry.monthlyRequests, entry.message, Date.now());
+}

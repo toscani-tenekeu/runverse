@@ -2,7 +2,7 @@ import Fastify from 'fastify';
 import rateLimit from '@fastify/rate-limit';
 import { LANGUAGES, byId } from './languages.js';
 import { execute, runtimes, type PistonRuntime } from './piston.js';
-import { getSnippet, purgeExpired, saveSnippet, type Snippet } from './db.js';
+import { getSnippet, joinWaitlist, purgeExpired, saveSnippet, type Snippet } from './db.js';
 
 const RUNS_PER_MINUTE = Number(process.env.RUNS_PER_MINUTE ?? 30);
 const SHARES_PER_HOUR = Number(process.env.SHARES_PER_HOUR ?? 20);
@@ -143,6 +143,34 @@ app.post<{ Body: Snippet & { expiresIn: string } }>('/api/snippets', {
   if (error) return reply.code(400).send({ message: error });
   const { expiresIn, ...snippet } = req.body;
   return reply.code(201).send(saveSnippet(snippet, EXPIRY[expiresIn]));
+});
+
+const MONTHLY_REQUEST_TIERS = ['under-1k', '1k-10k', '10k-100k', '100k-1m', 'over-1m'] as const;
+
+type WaitlistBody = { email: string; monthlyRequests: string; message?: string };
+
+app.post<{ Body: WaitlistBody }>('/api/waitlist', {
+  schema: {
+    body: {
+      type: 'object',
+      required: ['email', 'monthlyRequests'],
+      additionalProperties: false,
+      properties: {
+        email: { type: 'string', format: 'email', maxLength: 254 },
+        monthlyRequests: { type: 'string', enum: [...MONTHLY_REQUEST_TIERS] },
+        message: { type: 'string', maxLength: 1000, default: '' },
+      },
+    },
+  },
+  config: { rateLimit: { max: 5, timeWindow: '1 hour' } },
+}, async (req, reply) => {
+  joinWaitlist({
+    email: req.body.email.trim().toLowerCase(),
+    product: 'api',
+    monthlyRequests: req.body.monthlyRequests,
+    message: (req.body.message ?? '').trim(),
+  });
+  return reply.code(201).send({ ok: true });
 });
 
 app.get<{ Params: { id: string } }>('/api/snippets/:id', async (req, reply) => {

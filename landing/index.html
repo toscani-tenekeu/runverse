@@ -255,6 +255,23 @@ html.reduce .rail-track{flex-wrap:wrap;width:auto}
 .cta-card__label{font-size:1.25rem;font-weight:700;letter-spacing:-.02em}
 .cta-card__hint{font-size:.95rem;opacity:.75}
 
+/* API waitlist form */
+.soon-tag{display:inline-block;margin-bottom:10px;padding:3px 10px;border-radius:99px;background:var(--accent);color:var(--on-accent);font-size:.78rem;font-weight:700;letter-spacing:.02em}
+.api-form{display:grid;gap:16px;padding:22px 26px 0}
+.field{display:grid;gap:6px;font-weight:600;font-size:.92rem}
+.field small{font-weight:400;color:var(--muted)}
+.field select,.field input,.field textarea{
+  font:inherit;font-weight:400;color:var(--ink);background:var(--bg);border:0;border-radius:10px;
+  padding:11px 12px;box-shadow:inset 0 0 0 1.5px var(--line);
+}
+.field textarea{resize:vertical;min-height:80px}
+.field select:focus,.field input:focus,.field textarea:focus{outline:none;box-shadow:inset 0 0 0 2px var(--accent)}
+.field input[aria-invalid="true"]{box-shadow:inset 0 0 0 2px #da1e28}
+.form-status{margin:0;min-height:1.3em;font-size:.92rem;font-weight:600}
+.form-status.ok{color:#1e7f4f}
+.form-status.err{color:#da1e28}
+.api-form .modal-foot{padding:4px 0 26px}
+
 /* Footer */
 footer{margin-top:clamp(88px,14vh,160px);border-top:1px solid var(--line);overflow:hidden}
 .foot-grid{display:grid;grid-template-columns:1.6fr 1fr 1fr;gap:40px;padding:64px 0 48px}
@@ -367,12 +384,13 @@ footer{margin-top:clamp(88px,14vh,160px);border-top:1px solid var(--line);overfl
       <span>runverse</span>
     </a>
     <nav class="links" aria-label="Main navigation">
-      <a href="#languages">Languages</a>
       <a href="#self-host">Self-host</a>
-      <a href="#github">Source code</a>
       <a class="donate-link" href="https://camerpay.biz/l/iagsxtl8mp" target="_blank" rel="noopener noreferrer">Donate</a>
     </nav>
     <div class="nav-actions">
+      <a class="icon-btn" href="https://github.com/toscani-tenekeu/runverse" target="_blank" rel="noopener noreferrer" aria-label="Source code on GitHub" title="Source code on GitHub">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.8 1.19 1.83 1.19 3.09 0 4.42-2.69 5.39-5.26 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg>
+      </a>
       <button class="icon-btn theme-toggle" type="button" aria-label="Switch theme">
         <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>
         <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>
@@ -384,9 +402,8 @@ footer{margin-top:clamp(88px,14vh,160px);border-top:1px solid var(--line);overfl
     </div>
   </div>
   <nav class="mobile-menu" id="mobile-menu" aria-label="Mobile navigation">
-    <a href="#languages">Languages</a>
     <a href="#self-host">Self-host</a>
-    <a href="#github">Source code</a>
+    <a href="https://github.com/toscani-tenekeu/runverse" target="_blank" rel="noopener noreferrer">GitHub</a>
     <a class="donate-link" href="https://camerpay.biz/l/iagsxtl8mp" target="_blank" rel="noopener noreferrer">Donate</a>
     <button class="btn" type="button" data-open="langs">Open the editor</button>
   </nav>
@@ -501,6 +518,7 @@ footer{margin-top:clamp(88px,14vh,160px);border-top:1px solid var(--line);overfl
           <li><button class="linklike" type="button" data-open="langs">Editor</button></li>
           <li><a href="#languages">Languages</a></li>
           <li><a href="#self-host">Self-host</a></li>
+          <li><button class="linklike" type="button" data-open="api">API Reference</button></li>
         </ul>
       </div>
       <div>
@@ -565,6 +583,45 @@ footer{margin-top:clamp(88px,14vh,160px);border-top:1px solid var(--line);overfl
     <p>Need all of them?</p>
     <button class="btn btn-small" type="button" id="copy-all">Copy all 3 commands</button>
   </div>
+</dialog>
+
+<!-- MODAL: API reference (coming soon) -->
+<dialog class="modal modal-sm" id="modal-api" aria-labelledby="api-title">
+  <div class="modal-head">
+    <div>
+      <span class="soon-tag">Coming soon</span>
+      <h2 id="api-title">The Runverse API is on its way.</h2>
+      <p>Run code from your own apps with one HTTP request. Tell us what you need and we'll email you when it opens.</p>
+    </div>
+    <button class="icon-btn" type="button" data-close aria-label="Close">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+    </button>
+  </div>
+  <form class="api-form" id="api-form" novalidate>
+    <label class="field">
+      <span>Requests per month</span>
+      <select name="monthlyRequests" required>
+        <option value="under-1k">Fewer than 1,000</option>
+        <option value="1k-10k">1,000 to 10,000</option>
+        <option value="10k-100k">10,000 to 100,000</option>
+        <option value="100k-1m">100,000 to 1 million</option>
+        <option value="over-1m">More than 1 million</option>
+      </select>
+    </label>
+    <label class="field">
+      <span>What would you build? <small>(optional)</small></span>
+      <textarea name="message" rows="3" maxlength="1000" placeholder="For example: grading student code, running snippets in our docs…"></textarea>
+    </label>
+    <label class="field">
+      <span>Email</span>
+      <input name="email" type="email" required maxlength="254" autocomplete="email" placeholder="you@example.com">
+    </label>
+    <p class="form-status" role="status" aria-live="polite"></p>
+    <div class="modal-foot">
+      <p>No spam. One email when the API launches.</p>
+      <button class="btn btn-small" type="submit">Notify me</button>
+    </div>
+  </form>
 </dialog>
 
 <script>
@@ -856,7 +913,7 @@ window.RV_ICONS = {"html": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3
   $$('.nevers li').forEach(li => strike.observe(li));
 
   /* ================= Modals ================= */
-  const modals = { langs: $('#modal-langs'), copy: $('#modal-copy') };
+  const modals = { langs: $('#modal-langs'), copy: $('#modal-copy'), api: $('#modal-api') };
 
   function openModal(name) {
     const dlg = modals[name];
@@ -889,6 +946,44 @@ window.RV_ICONS = {"html": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3
     });
   });
   $$('[data-open]').forEach(el => el.addEventListener('click', e => { e.preventDefault(); openModal(el.dataset.open); }));
+
+  // API waitlist: stored by the Runverse API (POST /api/waitlist).
+  const apiForm = $('#api-form'), apiStatus = $('.form-status', apiForm);
+  apiForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(apiForm));
+    const email = String(data.email || '').trim();
+    const emailInput = apiForm.elements.email;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      emailInput.setAttribute('aria-invalid', 'true');
+      apiStatus.className = 'form-status err';
+      apiStatus.textContent = 'Enter a valid email address.';
+      emailInput.focus();
+      return;
+    }
+    emailInput.removeAttribute('aria-invalid');
+    const button = $('button[type="submit"]', apiForm);
+    button.disabled = true;
+    apiStatus.className = 'form-status';
+    apiStatus.textContent = 'Sending…';
+    try {
+      const res = await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email, monthlyRequests: data.monthlyRequests, message: String(data.message || '') }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message || 'Something went wrong.');
+      apiStatus.className = 'form-status ok';
+      apiStatus.textContent = "Thanks! We'll email you when the API is available.";
+      apiForm.reset();
+    } catch (err) {
+      apiStatus.className = 'form-status err';
+      apiStatus.textContent = err.message.includes('Slow down') ? err.message : 'Could not save your request. Try again in a moment.';
+    } finally {
+      button.disabled = false;
+    }
+  });
+
 
   // Language picker
   const grid = $('.lang-grid'), searchInput = $('#lang-search'), empty = $('.empty');
