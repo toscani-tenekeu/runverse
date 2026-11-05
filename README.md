@@ -99,7 +99,3 @@ cd web && bun install && bun run dev   # the Vite dev server proxies /api to loc
 ## Contributing
 
 Issues and pull requests are welcome. If a language is missing, [open an issue](https://github.com/toscani-tenekeu/runverse/issues/new).
-
-<div align="center">
-<sub>Hosted by <a href="https://kmerhosting.com">KmerHosting</a> · Made by <a href="https://toscani-tenekeu.com">Toscani TENEKEU</a></sub>
-</div>
