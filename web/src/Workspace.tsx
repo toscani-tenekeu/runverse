@@ -3,6 +3,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { languagesQuery, runCode, shareCode, type Code, type Expiry, type Language, type RunResult } from './api';
 import { CodeEditor } from './CodeEditor';
+import { downloadWorkspaceZip } from './export';
 import { useDialog } from './Dialog';
 import { Explorer, allFolders, type FileTab } from './Explorer';
 import { Resizer } from './Resizer';
@@ -276,6 +277,12 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
         {expiresAt && <span className="expires">Shared link, works until {formatDate(expiresAt)}</span>}
         <div className="bar-actions">
           <button className="btn btn-ghost" type="button" onClick={reset}>Reset</button>
+          <button
+            className="btn btn-ghost" type="button" title="Download all files as a .zip"
+            onClick={() => downloadWorkspaceZip(code, `runverse-${lang.id}`)}
+          >
+            Export .zip
+          </button>
           <div className="share" ref={shareRef}>
             <button
               className="btn btn-ghost" type="button" aria-haspopup="menu" aria-expanded={shareOpen}
