@@ -100,6 +100,23 @@ h2{font-size:clamp(2rem,4.2vw,3.5rem);line-height:1.02;letter-spacing:-.03em}
 .links a:hover,.links a.active{color:var(--ink)}
 .links a:hover::after,.links a.active::after{transform:scaleX(1)}
 .nav-actions{display:flex;align-items:center;gap:10px}
+.links a.donate-link{color:var(--accent-text);font-weight:600}
+.menu-btn,.mobile-menu{display:none}
+.menu-btn path{transform-box:fill-box;transform-origin:center;transition:transform .35s var(--ease),opacity .2s}
+.nav.open .menu-btn .bar1{transform:translateY(5px) rotate(45deg)}
+.nav.open .menu-btn .bar2{opacity:0}
+.nav.open .menu-btn .bar3{transform:translateY(-5px) rotate(-45deg)}
+@media (max-width:1024px){
+  .links{display:none}
+  .nav-actions{margin-left:auto}
+  .menu-btn{display:grid}
+  .mobile-menu{display:flex;flex-direction:column;gap:4px;padding:8px clamp(20px,4vw,48px) 24px;background:var(--bg);border-bottom:1px solid var(--line);max-height:calc(100vh - 72px);overflow-y:auto;visibility:hidden;opacity:0;transform:translateY(-8px);transition:opacity .25s,transform .25s var(--ease),visibility 0s .25s}
+  .nav.open .mobile-menu{visibility:visible;opacity:1;transform:none;transition:opacity .25s,transform .25s var(--ease)}
+  .nav.open{background:var(--bg);border-bottom-color:var(--line)}
+  .mobile-menu a{padding:14px 4px;border-bottom:1px solid var(--line);text-decoration:none;color:var(--ink);font-size:1.15rem;font-weight:500}
+  .mobile-menu a.donate-link{color:var(--accent-text);font-weight:600}
+  .mobile-menu .btn{margin-top:16px;justify-content:center}
+}
 
 .icon-btn{
   position:relative;width:42px;height:42px;border-radius:10px;border:0;cursor:pointer;flex-shrink:0;
@@ -351,6 +368,7 @@ footer{margin-top:clamp(88px,14vh,160px);border-top:1px solid var(--line);overfl
       <a href="#promise">Free forever</a>
       <a href="#self-host">Self-host</a>
       <a href="#github">Source code</a>
+      <a class="donate-link" href="https://camerpay.biz/l/iagsxtl8mp" target="_blank" rel="noopener noreferrer">Donate</a>
     </nav>
     <div class="nav-actions">
       <button class="icon-btn theme-toggle" type="button" aria-label="Switch theme">
@@ -358,8 +376,19 @@ footer{margin-top:clamp(88px,14vh,160px);border-top:1px solid var(--line);overfl
         <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>
       </button>
       <button class="btn btn-small" type="button" data-open="langs">Open the editor</button>
+      <button class="icon-btn menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path class="bar1" d="M4 7h16"/><path class="bar2" d="M4 12h16"/><path class="bar3" d="M4 17h16"/></svg>
+      </button>
     </div>
   </div>
+  <nav class="mobile-menu" id="mobile-menu" aria-label="Mobile navigation">
+    <a href="#languages">Languages</a>
+    <a href="#promise">Free forever</a>
+    <a href="#self-host">Self-host</a>
+    <a href="#github">Source code</a>
+    <a class="donate-link" href="https://camerpay.biz/l/iagsxtl8mp" target="_blank" rel="noopener noreferrer">Donate</a>
+    <button class="btn" type="button" data-open="langs">Open the editor</button>
+  </nav>
 </header>
 
 <main id="top">
@@ -762,7 +791,7 @@ window.RV_ICONS = {"c": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3d
     const y = scrollY, max = maxScroll();
     bar.style.transform = `scaleX(${max > 0 ? y / max : 0})`;
     nav.classList.toggle('scrolled', y > 20);
-    if (Math.abs(y - lastY) > 6) { nav.classList.toggle('hidden', y > lastY && y > 160); lastY = y; }
+    if (Math.abs(y - lastY) > 6) { nav.classList.toggle('hidden', y > lastY && y > 160 && !nav.classList.contains('open')); lastY = y; }
 
     if (!reduce) {
       if (heroVisible && orbit.offsetParent !== null) {
@@ -785,6 +814,18 @@ window.RV_ICONS = {"c": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3d
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
+
+  // Hamburger menu
+  const menuBtn = $('.menu-btn');
+  const setMenu = open => {
+    nav.classList.toggle('open', open);
+    menuBtn.setAttribute('aria-expanded', open);
+    menuBtn.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+  };
+  menuBtn.addEventListener('click', () => setMenu(!nav.classList.contains('open')));
+  $('.mobile-menu').addEventListener('click', e => { if (e.target.closest('a, button')) setMenu(false); });
+  addEventListener('keydown', e => { if (e.key === 'Escape') setMenu(false); });
+  matchMedia('(min-width:1025px)').addEventListener('change', e => { if (e.matches) setMenu(false); });
 
   // Active nav link
   const navLinks = $$('.links a');
