@@ -1,6 +1,6 @@
 # Runverse
 
-Landing page for [runverse.io](https://runverse.io), a free, open-source online compiler you can host yourself.
+Landing page for [runverse.kmerhosting.com](https://runverse.kmerhosting.com), a free, open-source online compiler you can host yourself.
 
 - Pure HTML, CSS and JavaScript, no build step
 - Light and dark themes
