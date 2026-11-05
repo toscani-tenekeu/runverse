@@ -15,8 +15,9 @@ if (unknown.length) {
 }
 
 const ids = args.includes('all') ? LANGUAGES.map(l => l.id) : args;
-// Browser-only languages (pkg '') need nothing installed.
-const pkgNames = [...new Set(ids.map(id => byId.get(id)!.pkg).filter(Boolean))];
+// Browser-only languages (pkg '') need nothing, and custom packages are built by
+// scripts/languages.sh with piston-packages/.
+const pkgNames = [...new Set(ids.map(id => byId.get(id)!.pkg).filter(pkg => pkg && !pkg.startsWith('custom:')))];
 const available = await packages();
 let failed = 0;
 

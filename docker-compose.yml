@@ -17,7 +17,9 @@ services:
       PISTON_COMPILE_MEMORY_LIMIT: -1
       # JVM, BEAM and Zig start slowly and use several threads, so they get more time.
       PISTON_LIMIT_OVERRIDES: >-
-        {"java":{"run_timeout":8000,"run_cpu_time":15000},
+        {"java":{"run_timeout":8000,"run_cpu_time":15000,"compile_timeout":30000,"compile_cpu_time":60000},
+        "csharp":{"run_timeout":8000,"run_cpu_time":15000,"compile_timeout":30000,"compile_cpu_time":60000},
+        "go":{"compile_timeout":30000,"compile_cpu_time":60000,"max_file_size":64000000},
         "kotlin":{"run_timeout":8000,"run_cpu_time":15000,"compile_timeout":30000,"compile_cpu_time":60000},
         "scala":{"run_timeout":8000,"run_cpu_time":15000,"compile_timeout":30000,"compile_cpu_time":60000},
         "clojure":{"run_timeout":8000,"run_cpu_time":15000},
@@ -55,6 +57,17 @@ services:
     depends_on: [api]
     ports:
       - "${RUNVERSE_BIND:-0.0.0.0}:${RUNVERSE_PORT:-8085}:80"
+    networks: [internal]
+
+  # Builds the custom language packages (.NET, Java 21, Go, Node 22, C++20).
+  # Only runs on demand: ./scripts/languages.sh calls `docker compose run --rm packages …`.
+  packages:
+    image: alpine:3.20
+    profiles: [tools]
+    entrypoint: ["/bin/sh", "/build/install.sh"]
+    volumes:
+      - piston_packages:/piston
+      - ./piston-packages:/build:ro
     networks: [internal]
 
 volumes:

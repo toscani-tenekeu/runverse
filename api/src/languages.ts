@@ -3,7 +3,7 @@
 export interface Language {
   id: string;
   name: string;
-  pkg: string; // '' for languages that run in the browser
+  pkg: string; // '' runs in the browser; 'custom:<name>' is built by piston-packages/<name>.sh
   runtime: string;
   file: string;
   mode: string; // syntax highlighting mode used by the editor
@@ -21,11 +21,11 @@ export const LANGUAGES: Language[] = [
     template: '#include <iostream>\n\nint main() {\n    std::cout << "Hello, Runverse!" << std::endl;\n    return 0;\n}\n',
   },
   {
-    id: 'csharp', name: 'C#', pkg: 'mono', runtime: 'csharp', file: 'Program.cs', mode: 'csharp',
+    id: 'csharp', name: 'C#', pkg: 'custom:dotnet', runtime: 'csharp', file: 'Program.cs', mode: 'csharp',
     template: 'using System;\n\nclass Program {\n    static void Main() {\n        Console.WriteLine("Hello, Runverse!");\n    }\n}\n',
   },
   {
-    id: 'java', name: 'Java', pkg: 'java', runtime: 'java', file: 'Main.java', mode: 'java',
+    id: 'java', name: 'Java', pkg: 'custom:java', runtime: 'java', file: 'Main.java', mode: 'java',
     template: 'public class Main {\n    public static void main(String[] args) {\n        System.out.println("Hello, Runverse!");\n    }\n}\n',
   },
   {
@@ -33,7 +33,7 @@ export const LANGUAGES: Language[] = [
     template: 'import sys\n\n# Type a name in the input box, or leave it empty.\nname = sys.stdin.readline().strip() or "Runverse"\nprint(f"Hello, {name}!")\n',
   },
   {
-    id: 'javascript', name: 'JavaScript', pkg: 'node', runtime: 'javascript', file: 'main.js', mode: 'javascript',
+    id: 'javascript', name: 'JavaScript', pkg: 'custom:node', runtime: 'javascript', file: 'main.js', mode: 'javascript',
     template: 'console.log("Hello, Runverse!");\n',
   },
   {
@@ -41,7 +41,7 @@ export const LANGUAGES: Language[] = [
     template: 'const greet = (name: string): string => `Hello, ${name}!`;\n\nconsole.log(greet("Runverse"));\n',
   },
   {
-    id: 'go', name: 'Go', pkg: 'go', runtime: 'go', file: 'main.go', mode: 'go',
+    id: 'go', name: 'Go', pkg: 'custom:go', runtime: 'go', file: 'main.go', mode: 'go',
     template: 'package main\n\nimport "fmt"\n\nfunc main() {\n\tfmt.Println("Hello, Runverse!")\n}\n',
   },
   {
