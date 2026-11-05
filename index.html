@@ -142,7 +142,6 @@ h2{font-size:clamp(2rem,4.2vw,3.5rem);line-height:1.02;letter-spacing:-.03em}
 .btn::before{content:"";position:absolute;inset:0;background:var(--btn-fill);transform:translateY(101%);transition:transform .45s var(--ease);z-index:-1}
 .btn:hover{color:var(--bg)}
 .btn:hover::before{transform:translateY(0)}
-.btn-ghost{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--line)}
 .btn-small{padding:11px 16px;font-size:.92rem}
 .btn svg{width:16px;height:16px}
 
@@ -335,8 +334,6 @@ footer{margin-top:clamp(88px,14vh,160px);border-top:1px solid var(--line);overfl
   .foot-grid > div:first-child{grid-column:1 / -1}
 }
 @media (max-width:760px){
-  .links{display:none}
-  .nav-actions{margin-left:auto}
   .orbit{display:none}
   .cmd-row{grid-template-columns:minmax(0,1fr) auto}
   .cmd-row .num{display:none}
