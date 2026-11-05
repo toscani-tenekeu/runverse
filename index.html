@@ -189,6 +189,8 @@ h2{font-size:clamp(2rem,4.2vw,3.5rem);line-height:1.02;letter-spacing:-.03em}
 .ext{font:500 .78rem var(--mono);color:var(--muted);margin-top:-10px}
 .rail.alt .lang .tile{border-radius:50%}
 html.reduce .rail-track{flex-wrap:wrap;width:auto}
+.tip{position:fixed;z-index:60;max-width:240px;padding:10px 14px;border-radius:10px;background:var(--ink);color:var(--bg);font-size:.85rem;line-height:1.4;pointer-events:none;opacity:0;transform:translateY(4px);transition:opacity .2s,transform .2s;box-shadow:0 12px 30px -10px rgba(8,18,38,.5)}
+.tip.show{opacity:1;transform:none}
 
 /* Promise */
 .promise h2{margin-bottom:clamp(36px,6vh,56px)}
@@ -374,8 +376,7 @@ footer{margin-top:clamp(88px,14vh,160px);border-top:1px solid var(--line);overfl
       </h1>
       <p class="lede">Runverse is a free, open-source online compiler. Pick one of 20+ languages, write your code, run it. No ads, no sign-up, and you can host it on your own server.</p>
       <div class="actions">
-        <button class="btn" type="button" data-open="langs">Try it now</button>
-        <button class="btn btn-ghost" type="button" data-open="copy">Host it myself</button>
+        <button class="btn" type="button" data-open="langs">Begin coding</button>
       </div>
     </div>
   </section>
@@ -547,30 +548,30 @@ window.RV_ICONS = {"c": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3d
   // Where each language opens in the editor. Change this to match your app's routes.
   const EDITOR_URL = id => `/editor/${id}`;
   const LANGS = [
-    { id: 'c', name: 'C', ext: '.c', icon: 'c/c-original.svg' },
-    { id: 'cpp', name: 'C++', ext: '.cpp', icon: 'cplusplus/cplusplus-original.svg' },
-    { id: 'csharp', name: 'C#', ext: '.cs', icon: 'csharp/csharp-original.svg' },
-    { id: 'java', name: 'Java', ext: '.java', icon: 'java/java-original.svg' },
-    { id: 'python', name: 'Python', ext: '.py', icon: 'python/python-original.svg' },
-    { id: 'javascript', name: 'JavaScript', ext: '.js', icon: 'javascript/javascript-original.svg' },
-    { id: 'typescript', name: 'TypeScript', ext: '.ts', icon: 'typescript/typescript-original.svg' },
-    { id: 'go', name: 'Go', ext: '.go', icon: 'go/go-original.svg' },
-    { id: 'rust', name: 'Rust', ext: '.rs', icon: 'rust/rust-original.svg' },
-    { id: 'php', name: 'PHP', ext: '.php', icon: 'php/php-original.svg' },
-    { id: 'kotlin', name: 'Kotlin', ext: '.kt', icon: 'kotlin/kotlin-original.svg' },
-    { id: 'swift', name: 'Swift', ext: '.swift', icon: 'swift/swift-original.svg' },
-    { id: 'ruby', name: 'Ruby', ext: '.rb', icon: 'ruby/ruby-original.svg' },
-    { id: 'dart', name: 'Dart', ext: '.dart', icon: 'dart/dart-original.svg' },
-    { id: 'lua', name: 'Lua', ext: '.lua', icon: 'lua/lua-original.svg' },
-    { id: 'bash', name: 'Bash', ext: '.sh', icon: 'bash/bash-original.svg' },
-    { id: 'r', name: 'R', ext: '.r', icon: 'r/r-original.svg' },
-    { id: 'haskell', name: 'Haskell', ext: '.hs', icon: 'haskell/haskell-original.svg' },
-    { id: 'scala', name: 'Scala', ext: '.scala', icon: 'scala/scala-original.svg' },
-    { id: 'elixir', name: 'Elixir', ext: '.ex', icon: 'elixir/elixir-original.svg' },
-    { id: 'perl', name: 'Perl', ext: '.pl', icon: 'perl/perl-original.svg' },
-    { id: 'clojure', name: 'Clojure', ext: '.clj', icon: 'clojure/clojure-original.svg' },
-    { id: 'zig', name: 'Zig', ext: '.zig', icon: 'zig/zig-original.svg' },
-    { id: 'sqlite', name: 'SQLite', ext: '.sql', icon: 'sqlite/sqlite-original.svg' },
+    { id: 'c', name: 'C', ext: '.c', icon: 'c/c-original.svg', tip: 'Fast, low-level language behind operating systems and embedded devices.' },
+    { id: 'cpp', name: 'C++', ext: '.cpp', icon: 'cplusplus/cplusplus-original.svg', tip: 'C with classes and templates. Games, engines and performance-critical software.' },
+    { id: 'csharp', name: 'C#', ext: '.cs', icon: 'csharp/csharp-original.svg', tip: 'Modern language from Microsoft for apps, games (Unity) and web backends.' },
+    { id: 'java', name: 'Java', ext: '.java', icon: 'java/java-original.svg', tip: 'Write once, run anywhere. Enterprise backends and Android history.' },
+    { id: 'python', name: 'Python', ext: '.py', icon: 'python/python-original.svg', tip: 'Readable and beginner-friendly. Data science, automation and AI.' },
+    { id: 'javascript', name: 'JavaScript', ext: '.js', icon: 'javascript/javascript-original.svg', tip: 'The language of the web, running in browsers and on servers.' },
+    { id: 'typescript', name: 'TypeScript', ext: '.ts', icon: 'typescript/typescript-original.svg', tip: 'JavaScript with types, for safer large codebases.' },
+    { id: 'go', name: 'Go', ext: '.go', icon: 'go/go-original.svg', tip: 'Simple, fast and great at concurrency. Made by Google for cloud tools.' },
+    { id: 'rust', name: 'Rust', ext: '.rs', icon: 'rust/rust-original.svg', tip: 'Memory safety without a garbage collector. Fast and reliable systems code.' },
+    { id: 'php', name: 'PHP', ext: '.php', icon: 'php/php-original.svg', tip: 'Powers a large part of the web, including WordPress.' },
+    { id: 'kotlin', name: 'Kotlin', ext: '.kt', icon: 'kotlin/kotlin-original.svg', tip: 'Concise, safe language for Android and the JVM.' },
+    { id: 'swift', name: 'Swift', ext: '.swift', icon: 'swift/swift-original.svg', tip: 'Apple’s language for iOS, macOS and beyond.' },
+    { id: 'ruby', name: 'Ruby', ext: '.rb', icon: 'ruby/ruby-original.svg', tip: 'Elegant and expressive. Home of the Rails framework.' },
+    { id: 'dart', name: 'Dart', ext: '.dart', icon: 'dart/dart-original.svg', tip: 'Client-optimized language behind Flutter apps.' },
+    { id: 'lua', name: 'Lua', ext: '.lua', icon: 'lua/lua-original.svg', tip: 'Tiny, fast scripting language used in games and embedded tools.' },
+    { id: 'bash', name: 'Bash', ext: '.sh', icon: 'bash/bash-original.svg', tip: 'Shell scripting to automate tasks on Linux and macOS.' },
+    { id: 'r', name: 'R', ext: '.r', icon: 'r/r-original.svg', tip: 'Built for statistics, data analysis and charts.' },
+    { id: 'haskell', name: 'Haskell', ext: '.hs', icon: 'haskell/haskell-original.svg', tip: 'Purely functional language with a strong type system.' },
+    { id: 'scala', name: 'Scala', ext: '.scala', icon: 'scala/scala-original.svg', tip: 'Object-oriented and functional on the JVM. Big data with Spark.' },
+    { id: 'elixir', name: 'Elixir', ext: '.ex', icon: 'elixir/elixir-original.svg', tip: 'Functional language for scalable, fault-tolerant, real-time apps.' },
+    { id: 'perl', name: 'Perl', ext: '.pl', icon: 'perl/perl-original.svg', tip: 'Veteran text-processing and scripting language.' },
+    { id: 'clojure', name: 'Clojure', ext: '.clj', icon: 'clojure/clojure-original.svg', tip: 'Modern Lisp on the JVM, focused on simplicity and immutability.' },
+    { id: 'zig', name: 'Zig', ext: '.zig', icon: 'zig/zig-original.svg', tip: 'Small, explicit systems language, a modern take on C.' },
+    { id: 'sqlite', name: 'SQLite', ext: '.sql', icon: 'sqlite/sqlite-original.svg', tip: 'Query a lightweight SQL database, no server needed.' },
   ];
   const byId = Object.fromEntries(LANGS.map(l => [l.id, l]));
   const COMMANDS = [
@@ -732,10 +733,26 @@ window.RV_ICONS = {"c": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3d
   const rails = $$('.rail').map((r, i) => {
     const track = $('.rail-track', r);
     track.innerHTML = LANGS.slice(i * 12, i * 12 + 12).map(l => `
-      <li class="lang">${tileHTML(l)}<span class="name">${esc(l.name)}</span><span class="ext">${l.ext}</span></li>`).join('');
+      <li class="lang" data-tip="${esc(l.tip)}">${tileHTML(l)}<span class="name">${esc(l.name)}</span><span class="ext">${l.ext}</span></li>`).join('');
     return { track, dir: +r.dataset.dir, x: null };
   });
   guardIcons(langSec);
+
+  // Info tip on hover / keyboard focus. One floating element, so the rails' overflow can't clip it.
+  const tip = document.createElement('div');
+  tip.className = 'tip'; tip.setAttribute('role', 'tooltip');
+  document.body.appendChild(tip);
+  const showTip = li => {
+    tip.innerHTML = `<strong>${li.querySelector('.name').textContent}</strong><br>${li.dataset.tip}`;
+    const r = li.getBoundingClientRect(), w = tip.offsetWidth;
+    tip.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + 'px';
+    const above = r.top - tip.offsetHeight - 8;
+    tip.style.top = (above > 8 ? above : r.bottom + 8) + 'px';
+    tip.classList.add('show');
+  };
+  langSec.addEventListener('pointerover', e => { const li = e.target.closest('.lang'); li ? showTip(li) : tip.classList.remove('show'); });
+  langSec.addEventListener('pointerleave', () => tip.classList.remove('show'));
+  addEventListener('scroll', () => tip.classList.remove('show'), { passive: true });
 
   /* ================= Main animation loop ================= */
   const nav = $('#nav'), bar = $('.progress'), footer = $('footer'), mark = $('.foot-mark');
