@@ -101,7 +101,7 @@ h2{font-size:clamp(2rem,4.2vw,3.5rem);line-height:1.02;letter-spacing:-.03em}
 .links a:hover::after,.links a.active::after{transform:scaleX(1)}
 .nav-actions{display:flex;align-items:center;gap:10px}
 .links a.donate-link{color:var(--accent-text);font-weight:600}
-.menu-btn,.mobile-menu{display:none}
+.nav .menu-btn,.nav .mobile-menu{display:none}
 .menu-btn path{transform-box:fill-box;transform-origin:center;transition:transform .35s var(--ease),opacity .2s}
 .nav.open .menu-btn .bar1{transform:translateY(5px) rotate(45deg)}
 .nav.open .menu-btn .bar2{opacity:0}
@@ -109,8 +109,8 @@ h2{font-size:clamp(2rem,4.2vw,3.5rem);line-height:1.02;letter-spacing:-.03em}
 @media (max-width:1024px){
   .links{display:none}
   .nav-actions{margin-left:auto}
-  .menu-btn{display:grid}
-  .mobile-menu{display:flex;flex-direction:column;gap:4px;padding:8px clamp(20px,4vw,48px) 24px;background:var(--bg);border-bottom:1px solid var(--line);max-height:calc(100vh - 72px);overflow-y:auto;visibility:hidden;opacity:0;transform:translateY(-8px);transition:opacity .25s,transform .25s var(--ease),visibility 0s .25s}
+  .nav .menu-btn{display:grid}
+  .nav .mobile-menu{display:flex;flex-direction:column;gap:4px;padding:8px clamp(20px,4vw,48px) 24px;background:var(--bg);border-bottom:1px solid var(--line);max-height:calc(100vh - 72px);overflow-y:auto;visibility:hidden;opacity:0;transform:translateY(-8px);transition:opacity .25s,transform .25s var(--ease),visibility 0s .25s}
   .nav.open .mobile-menu{visibility:visible;opacity:1;transform:none;transition:opacity .25s,transform .25s var(--ease)}
   .nav.open{background:var(--bg);border-bottom-color:var(--line)}
   .mobile-menu a{padding:14px 4px;border-bottom:1px solid var(--line);text-decoration:none;color:var(--ink);font-size:1.15rem;font-weight:500}
@@ -365,7 +365,6 @@ footer{margin-top:clamp(88px,14vh,160px);border-top:1px solid var(--line);overfl
     </a>
     <nav class="links" aria-label="Main navigation">
       <a href="#languages">Languages</a>
-      <a href="#promise">Free forever</a>
       <a href="#self-host">Self-host</a>
       <a href="#github">Source code</a>
       <a class="donate-link" href="https://camerpay.biz/l/iagsxtl8mp" target="_blank" rel="noopener noreferrer">Donate</a>
@@ -383,7 +382,6 @@ footer{margin-top:clamp(88px,14vh,160px);border-top:1px solid var(--line);overfl
   </div>
   <nav class="mobile-menu" id="mobile-menu" aria-label="Mobile navigation">
     <a href="#languages">Languages</a>
-    <a href="#promise">Free forever</a>
     <a href="#self-host">Self-host</a>
     <a href="#github">Source code</a>
     <a class="donate-link" href="https://camerpay.biz/l/iagsxtl8mp" target="_blank" rel="noopener noreferrer">Donate</a>
