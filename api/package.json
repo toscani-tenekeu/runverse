@@ -1,0 +1,18 @@
+{
+  "name": "runverse-api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@fastify/rate-limit": "^11.2.2",
+    "fastify": "^5.12.8",
+    "nanoid": "^6.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2"
+  }
+}

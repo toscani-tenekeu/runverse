@@ -1,0 +1,61 @@
+name: runverse
+
+services:
+  piston:
+    image: ghcr.io/engineer-man/piston:latest
+    privileged: true # required by Piston's isolate sandbox
+    restart: unless-stopped
+    environment:
+      PISTON_RUN_TIMEOUT: ${RUN_TIMEOUT_MS:-3000}
+      PISTON_COMPILE_TIMEOUT: ${COMPILE_TIMEOUT_MS:-10000}
+      PISTON_OUTPUT_MAX_SIZE: 65536
+      PISTON_RUN_MEMORY_LIMIT: ${MEMORY_LIMIT_BYTES:-1073741824}
+      PISTON_COMPILE_MEMORY_LIMIT: -1
+      # JVM, BEAM and Zig start slowly and use several threads, so they get more time.
+      PISTON_LIMIT_OVERRIDES: >-
+        {"java":{"run_timeout":8000,"run_cpu_time":15000},
+        "kotlin":{"run_timeout":8000,"run_cpu_time":15000,"compile_timeout":30000,"compile_cpu_time":60000},
+        "scala":{"run_timeout":8000,"run_cpu_time":15000,"compile_timeout":30000,"compile_cpu_time":60000},
+        "clojure":{"run_timeout":8000,"run_cpu_time":15000},
+        "elixir":{"run_timeout":8000,"run_cpu_time":15000},
+        "zig":{"run_timeout":8000,"run_cpu_time":15000,"compile_timeout":30000,"compile_cpu_time":60000}}
+    volumes:
+      - piston_packages:/piston
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:2000/api/v2/runtimes', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+    networks: [internal]
+
+  api:
+    build: ./api
+    restart: unless-stopped
+    depends_on:
+      piston:
+        condition: service_healthy
+    environment:
+      PISTON_URL: http://piston:2000
+      DATA_DIR: /data
+      RUNS_PER_MINUTE: ${RUNS_PER_MINUTE:-30}
+      SHARES_PER_HOUR: ${SHARES_PER_HOUR:-20}
+    volumes:
+      - runverse_data:/data
+    networks: [internal]
+
+  frontend:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    restart: unless-stopped
+    depends_on: [api]
+    ports:
+      - "${RUNVERSE_BIND:-0.0.0.0}:${RUNVERSE_PORT:-8080}:80"
+    networks: [internal]
+
+volumes:
+  piston_packages:
+  runverse_data:
+
+networks:
+  internal:
