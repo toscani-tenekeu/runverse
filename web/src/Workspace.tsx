@@ -182,7 +182,7 @@ function Output({ pending, error, result }: { pending: boolean; error?: string; 
   const { compile, run } = result;
   const compileFailed = compile && compile.code !== 0;
   const stage = compileFailed ? compile : run;
-  const killed = stage.signal === 'SIGKILL';
+  const killed = stage.signal === 'SIGKILL' || stage.code === 137; // 137: killed by the memory limit
   const status = compileFailed ? 'Compilation failed'
     : killed ? 'Stopped: time or memory limit reached'
     : stage.signal ? `Stopped by ${stage.signal}`

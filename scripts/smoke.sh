@@ -1,8 +1,8 @@
 #!/bin/bash
 # Run hello-world in every installed language plus a few edge cases.
-# Usage: ./scripts/smoke.sh [base-url]   (default http://localhost:8080)
+# Usage: ./scripts/smoke.sh [base-url]   (default http://localhost:8085)
 set -uo pipefail
-BASE=${1:-http://localhost:8080}
+BASE=${1:-http://localhost:8085}
 fail=0
 check() { # name, json body, python expression over the result `r`
   local out
