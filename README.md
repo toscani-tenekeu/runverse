@@ -10,7 +10,7 @@ A free, open-source online compiler you can host yourself.<br>
 24 languages plus HTML, CSS & JS, no ads, no sign-up, no tracking.
 
 [![Live demo](https://img.shields.io/badge/demo-runverse.kmerhosting.com-F2B630?style=flat-square)](https://runverse.kmerhosting.com)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](https://github.com/toscani-tenekeu/runverse/blob/main/LICENSE)
 [![Docker Compose](https://img.shields.io/badge/docker-compose-2496ED?style=flat-square&logo=docker&logoColor=white)](#self-host)
 [![Node.js](https://img.shields.io/badge/node-24-5FA04E?style=flat-square&logo=nodedotjs&logoColor=white)](api)
 [![React](https://img.shields.io/badge/react-19-61DAFB?style=flat-square&logo=react&logoColor=black)](web)
@@ -100,8 +100,8 @@ cd web && bun install && bun run dev   # the Vite dev server proxies /api to loc
 
 ## Contributing
 
-Issues and pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) to get started, and report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
+Issues and pull requests are welcome. Read [CONTRIBUTING.md](https://github.com/toscani-tenekeu/runverse/blob/main/CONTRIBUTING.md) to get started, and report vulnerabilities privately as described in [SECURITY.md](https://github.com/toscani-tenekeu/runverse/blob/main/SECURITY.md).
 
 ## License
 
-[MIT](LICENSE)
+[MIT](https://github.com/toscani-tenekeu/runverse/blob/main/LICENSE)

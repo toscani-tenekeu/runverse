@@ -5,7 +5,7 @@ Thanks for helping. Bug reports, fixes, new languages and docs are all welcome.
 ## Before you start
 
 - **Bugs and ideas**: [open an issue](https://github.com/toscani-tenekeu/runverse/issues/new/choose) first, so we can agree on the fix.
-- **Security issues**: don't open a public issue. See [SECURITY.md](SECURITY.md).
+- **Security issues**: don't open a public issue. See [SECURITY.md](https://github.com/toscani-tenekeu/runverse/blob/main/SECURITY.md).
 - **Small fixes** (typos, docs): send a pull request directly.
 
 ## Set up
@@ -39,4 +39,4 @@ cd web && bun install && bun run dev   # editor with hot reload
 - Write commit messages in the imperative: "Add Zig 0.14", not "Added Zig".
 - Describe what changed and how you tested it. Add a screenshot for UI changes.
 
-By contributing, you agree that your work is released under the [MIT License](LICENSE) and that you follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+By contributing, you agree that your work is released under the [MIT License](https://github.com/toscani-tenekeu/runverse/blob/main/LICENSE) and that you follow the [Code of Conduct](https://github.com/toscani-tenekeu/runverse/blob/main/CODE_OF_CONDUCT.md).
