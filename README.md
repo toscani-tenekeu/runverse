@@ -16,7 +16,7 @@ A free, open-source online compiler you can host yourself.<br>
 [![React](https://img.shields.io/badge/react-19-61DAFB?style=flat-square&logo=react&logoColor=black)](web)
 [![Bun](https://img.shields.io/badge/built%20with-bun-000000?style=flat-square&logo=bun&logoColor=white)](web)
 
-[Try it](https://runverse.kmerhosting.com/editor) · [Self-host](#self-host) · [Report a bug](https://github.com/toscani-tenekeu/runverse/issues/new) · [Donate](https://camerpay.biz/l/iagsxtl8mp)
+[Try it](https://runverse.kmerhosting.com/editor) | [Self-host](#self-host) | [Report a bug](https://github.com/toscani-tenekeu/runverse/issues/new) | [Donate](https://camerpay.biz/l/iagsxtl8mp)
 
 </div>
 
