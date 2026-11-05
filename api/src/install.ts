@@ -15,7 +15,8 @@ if (unknown.length) {
 }
 
 const ids = args.includes('all') ? LANGUAGES.map(l => l.id) : args;
-const pkgNames = [...new Set(ids.map(id => byId.get(id)!.pkg))];
+// Browser-only languages (pkg '') need nothing installed.
+const pkgNames = [...new Set(ids.map(id => byId.get(id)!.pkg).filter(Boolean))];
 const available = await packages();
 let failed = 0;
 

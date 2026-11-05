@@ -19,7 +19,7 @@ check() { # name, json body, python expression over the result `r`
 for row in $(curl -s "$BASE/api/languages" | python3 -c "
 import json,sys,base64
 for l in json.load(sys.stdin):
-    if l['installed']:
+    if l['installed'] and l['version']:  # skip browser-only languages (web)
         body=json.dumps({'language':l['id'],'files':[{'name':l['file'],'content':l['template']}]})
         print(base64.b64encode(body.encode()).decode())"); do
   body=$(echo "$row" | base64 -d)

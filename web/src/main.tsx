@@ -5,13 +5,11 @@ import {
   createRootRoute, createRoute, createRouter, redirect, Link, Outlet, RouterProvider,
 } from '@tanstack/react-router';
 import { getSnippet, languagesQuery, type Code, type Language } from './api';
-import { Workspace, Logo, draftKey } from './Workspace';
+import { Workspace, Logo, draftKey, starter } from './Workspace';
 import { load } from './storage';
 import './styles.css';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } } });
-
-const starter = (l: Language): Code => ({ language: l.id, files: [{ name: l.file, content: l.template }], stdin: '' });
 
 function EditorPage() {
   const { lang } = editorRoute.useParams();
@@ -35,7 +33,7 @@ function SnippetPage() {
   if (langs.error) return <Message title="Runverse can't reach its server." text={langs.error.message} />;
   const l = langs.data.find(x => x.id === snippet.data.language);
   if (!l) return <Message title="This snippet uses a language this server doesn't have." languages={langs.data} />;
-  return <Workspace key={id} lang={l} initial={snippet.data} persist={false} />;
+  return <Workspace key={id} lang={l} initial={snippet.data} persist={false} expiresAt={snippet.data.expiresAt} />;
 }
 
 function Message({ title, text, languages }: { title: string; text?: string; languages?: Language[] }) {

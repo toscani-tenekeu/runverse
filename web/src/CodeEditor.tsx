@@ -24,12 +24,13 @@ const theme = EditorView.theme({
   '.cm-content': { caretColor: 'var(--accent)', padding: '14px 0' },
   '.cm-cursor': { borderLeftColor: 'var(--accent)', borderLeftWidth: '2px' },
   '.cm-gutters': { backgroundColor: 'var(--ed-bg)', color: 'var(--ed-muted)', border: 'none', paddingLeft: '8px' },
-  '.cm-activeLine': { backgroundColor: 'rgba(255,255,255,.035)' },
+  '.cm-activeLine': { backgroundColor: 'var(--ed-active)' },
   '.cm-activeLineGutter': { backgroundColor: 'transparent', color: 'var(--ed-ink)' },
   '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection': { backgroundColor: 'rgba(242,182,48,.25) !important' },
   '&.cm-focused': { outline: 'none' },
   '.cm-matchingBracket': { backgroundColor: 'rgba(242,182,48,.2)', outline: '1px solid rgba(242,182,48,.5)' },
-}, { dark: true });
+  '.cm-placeholder': { color: 'var(--ed-muted)' },
+});
 
 interface Props {
   fileKey: string; // a stable id per file, so each file keeps its own undo history

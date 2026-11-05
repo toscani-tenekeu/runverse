@@ -13,6 +13,8 @@ const loaders: Record<string, () => Promise<Extension>> = {
   go: () => import('@codemirror/lang-go').then(m => m.go()),
   rust: () => import('@codemirror/lang-rust').then(m => m.rust()),
   php: () => import('@codemirror/lang-php').then(m => m.php()),
+  html: () => import('@codemirror/lang-html').then(m => m.html()),
+  css: () => import('@codemirror/lang-css').then(m => m.css()),
   sql: () => import('@codemirror/lang-sql').then(m => m.sql()),
   csharp: () => legacy(import('@codemirror/legacy-modes/mode/clike').then(m => m.csharp)),
   kotlin: () => legacy(import('@codemirror/legacy-modes/mode/clike').then(m => m.kotlin)),

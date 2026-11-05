@@ -3,11 +3,12 @@
 export interface Language {
   id: string;
   name: string;
-  pkg: string;
+  pkg: string; // '' for languages that run in the browser
   runtime: string;
   file: string;
   mode: string; // syntax highlighting mode used by the editor
   template: string;
+  files?: { name: string; content: string }[];
 }
 
 export const LANGUAGES: Language[] = [
@@ -108,5 +109,26 @@ export const LANGUAGES: Language[] = [
     template: "CREATE TABLE greetings (text TEXT);\nINSERT INTO greetings VALUES ('Hello, Runverse!');\nSELECT text FROM greetings;\n",
   },
 ];
+
+// HTML, CSS and JavaScript run in the visitor's browser, in a sandboxed preview frame.
+const WEB_FILES = [
+  {
+    name: 'index.html',
+    content: '<!doctype html>\n<html lang="en">\n<head>\n  <meta charset="utf-8">\n  <title>My page</title>\n  <link rel="stylesheet" href="style.css">\n</head>\n<body>\n  <h1>Hello, Runverse!</h1>\n  <button id="btn">Click me</button>\n  <script src="script.js"></script>\n</body>\n</html>\n',
+  },
+  {
+    name: 'style.css',
+    content: 'body {\n  font-family: system-ui, sans-serif;\n  display: grid;\n  place-items: center;\n  min-height: 90vh;\n  background: #EDF0F4;\n  color: #15233A;\n}\n\nbutton {\n  padding: 10px 18px;\n  border: 0;\n  border-radius: 10px;\n  background: #F2B630;\n  font: inherit;\n  font-weight: 600;\n  cursor: pointer;\n}\n',
+  },
+  {
+    name: 'script.js',
+    content: "let clicks = 0;\n\ndocument.getElementById('btn').addEventListener('click', () => {\n  clicks++;\n  console.log(`Clicked ${clicks} time(s)`);\n});\n",
+  },
+  ];
+LANGUAGES.push({
+  id: 'web', name: 'HTML, CSS & JS', pkg: '', runtime: '', file: 'index.html', mode: 'html',
+  template: WEB_FILES[0].content,
+  files: WEB_FILES,
+});
 
 export const byId = new Map(LANGUAGES.map(l => [l.id, l]));

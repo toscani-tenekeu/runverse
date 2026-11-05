@@ -7,7 +7,7 @@
 **Write. Run. That's it.**
 
 A free, open-source online compiler you can host yourself.<br>
-24 languages, no ads, no sign-up, no tracking.
+24 languages plus HTML, CSS & JS, no ads, no sign-up, no tracking.
 
 [![Live demo](https://img.shields.io/badge/demo-runverse.kmerhosting.com-F2B630?style=flat-square)](https://runverse.kmerhosting.com)
 [![Docker Compose](https://img.shields.io/badge/docker-compose-2496ED?style=flat-square&logo=docker&logoColor=white)](#self-host)
@@ -24,10 +24,12 @@ A free, open-source online compiler you can host yourself.<br>
 ## Features
 
 - **24 languages**: C, C++, C#, Java, Python, JavaScript, TypeScript, Go, Rust, PHP, Kotlin, Swift, Ruby, Dart, Lua, Bash, R, Haskell, Scala, Elixir, Perl, Clojure, Zig and SQLite
-- **Multiple files** per project, with standard input and separate stdout, stderr and compiler output
-- **Share links** that save your code and give you a short URL
+- **HTML, CSS & JS** with a live preview and console, running safely in a sandboxed frame in the browser
+- **Files and folders** per project (`lib/utils.py`), with standard input and separate stdout, stderr and compiler output
+- **Share links** that expire after 1 hour, 1, 7, 15, 20 or 30 days, your choice
+- **Resizable panes**, and light and dark editor themes
 - **Safe by default**: every run is sandboxed by [Piston](https://github.com/engineer-man/piston) with no network, plus time, memory and process limits and per-IP rate limits
-- **Light and dark themes**, and it works on phones and tablets
+- **Works on phones and tablets**
 - **One command to host**: a single Docker Compose file, and it works offline once languages are installed
 
 ## Self-host

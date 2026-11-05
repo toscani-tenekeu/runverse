@@ -2,11 +2,13 @@ import Fastify from 'fastify';
 import rateLimit from '@fastify/rate-limit';
 import { LANGUAGES, byId } from './languages.js';
 import { execute, runtimes, type PistonRuntime } from './piston.js';
-import { getSnippet, saveSnippet, type Snippet } from './db.js';
+import { getSnippet, purgeExpired, saveSnippet, type Snippet } from './db.js';
 
 const RUNS_PER_MINUTE = Number(process.env.RUNS_PER_MINUTE ?? 30);
 const SHARES_PER_HOUR = Number(process.env.SHARES_PER_HOUR ?? 20);
 const MAX_TOTAL_BYTES = 200 * 1024;
+// Up to 5 levels of folders: "src/lib/util.py". Segments can't start with a dot, so no "..".
+const PATH = '^([A-Za-z0-9_][A-Za-z0-9_.-]{0,63}/){0,4}[A-Za-z0-9_][A-Za-z0-9_.-]{0,63}$';
 
 const app = Fastify({ logger: { level: 'info' }, trustProxy: true, bodyLimit: 512 * 1024 });
 
@@ -25,17 +27,19 @@ const codeBody = {
   additionalProperties: false,
   properties: {
     language: { type: 'string', maxLength: 32 },
+    // Empty folders the user created; folders holding files come from the file paths.
+    folders: { type: 'array', maxItems: 30, default: [], items: { type: 'string', maxLength: 200, pattern: PATH } },
     stdin: { type: 'string', maxLength: 64 * 1024, default: '' },
     files: {
       type: 'array',
       minItems: 1,
-      maxItems: 10,
+      maxItems: 20,
       items: {
         type: 'object',
         required: ['name', 'content'],
         additionalProperties: false,
         properties: {
-          name: { type: 'string', pattern: '^[A-Za-z0-9_][A-Za-z0-9_.-]{0,63}$' },
+          name: { type: 'string', maxLength: 200, pattern: PATH },
           content: { type: 'string' },
         },
       },
@@ -43,11 +47,22 @@ const codeBody = {
   },
 } as const;
 
+// How long a share link lives; the visitor picks one, 30 days at most.
+const HOUR = 3_600_000, DAY = 24 * HOUR;
+const EXPIRY: Record<string, number> = { '1h': HOUR, '1d': DAY, '7d': 7 * DAY, '15d': 15 * DAY, '20d': 20 * DAY, '30d': 30 * DAY };
+
+const shareBody = {
+  ...codeBody,
+  properties: { ...codeBody.properties, expiresIn: { type: 'string', enum: Object.keys(EXPIRY), default: '7d' } },
+} as const;
+
 // Shared checks for /run and /snippets beyond what the JSON schema covers.
 function checkCode(body: Snippet): string | null {
   if (!byId.has(body.language)) return `Unknown language "${body.language}".`;
   const names = new Set(body.files.map(f => f.name));
   if (names.size !== body.files.length) return 'Two files have the same name.';
+  const clash = body.files.find(f => names.has(f.name.slice(0, f.name.lastIndexOf('/'))));
+  if (clash) return `${clash.name} is inside a folder that has the same name as a file.`;
   const total = body.files.reduce((n, f) => n + Buffer.byteLength(f.content), 0);
   if (total > MAX_TOTAL_BYTES) return 'Your files are too large (200 KB max in total).';
   return null;
@@ -58,7 +73,10 @@ function checkCode(body: Snippet): string | null {
 // and map the names back in the output so messages show the files the user wrote.
 function adaptFiles(id: string, files: Snippet['files']) {
   const ext = id === 'c' ? '.c' : id === 'cpp' ? '.cpp' : null;
-  if (!ext) return { files, tidy: (s: string) => s };
+  if (!ext) return { files, tidy: (s: string) => s, error: null };
+  // The compiler only picks up sources at the top level ("gcc *.c").
+  const nested = files.find(f => f.name.includes('/') && f.name.endsWith(ext));
+  if (nested) return { files, tidy: (s: string) => s, error: `Put ${ext} files at the top level. Only headers can go in folders (${nested.name}).` };
   const headers = files.map(f => f.name).filter(n => !n.endsWith(ext));
   const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const includes = headers.length ? new RegExp(`(#\\s*include\\s*")(${headers.map(esc).join('|')})"`, 'g') : null;
@@ -70,6 +88,7 @@ function adaptFiles(id: string, files: Snippet['files']) {
     tidy: (s: string) => s
       .replace(/^chmod: cannot access 'a\.out'.*\n?/gm, '')
       .replace(new RegExp(`(${files.map(f => esc(f.name)).join('|')})${esc(ext)}\\b`, 'g'), '$1'),
+    error: null,
   };
 }
 
@@ -85,6 +104,7 @@ app.get('/api/health', async () => ({ ok: true }));
 app.get('/api/languages', async () => {
   const list = await installed();
   return LANGUAGES.map(({ pkg: _pkg, ...l }) => {
+    if (!l.runtime) return { ...l, installed: true, version: null };
     const rt = list.find(r => r.language === l.runtime);
     return { ...l, installed: !!rt, version: rt?.version ?? null };
   });
@@ -98,10 +118,12 @@ app.post<{ Body: Snippet }>('/api/run', {
   if (error) return reply.code(400).send({ message: error });
 
   const lang = byId.get(req.body.language)!;
+  if (!lang.runtime) return reply.code(400).send({ message: `${lang.name} runs in your browser, not on the server.` });
   const rt = (await installed()).find(r => r.language === lang.runtime);
   if (!rt) return reply.code(400).send({ message: `${lang.name} is not installed on this server.` });
 
-  const { files, tidy } = adaptFiles(lang.id, req.body.files);
+  const { files, tidy, error: layoutError } = adaptFiles(lang.id, req.body.files);
+  if (layoutError) return reply.code(400).send({ message: layoutError });
   const started = Date.now();
   const result = await execute({
     language: rt.language,
@@ -113,18 +135,19 @@ app.post<{ Body: Snippet }>('/api/run', {
   return { run: pick(result.run), compile: pick(result.compile), durationMs: Date.now() - started, version: rt.version };
 });
 
-app.post<{ Body: Snippet }>('/api/snippets', {
-  schema: { body: codeBody },
+app.post<{ Body: Snippet & { expiresIn: string } }>('/api/snippets', {
+  schema: { body: shareBody },
   config: { rateLimit: { max: SHARES_PER_HOUR, timeWindow: '1 hour' } },
 }, async (req, reply) => {
   const error = checkCode(req.body);
   if (error) return reply.code(400).send({ message: error });
-  return reply.code(201).send({ id: saveSnippet(req.body) });
+  const { expiresIn, ...snippet } = req.body;
+  return reply.code(201).send(saveSnippet(snippet, EXPIRY[expiresIn]));
 });
 
 app.get<{ Params: { id: string } }>('/api/snippets/:id', async (req, reply) => {
   const snippet = /^[a-z0-9]{8}$/.test(req.params.id) && getSnippet(req.params.id);
-  if (!snippet) return reply.code(404).send({ message: 'This snippet does not exist.' });
+  if (!snippet) return reply.code(404).send({ message: 'This link has expired or never existed.' });
   return snippet;
 });
 
@@ -134,5 +157,10 @@ app.setErrorHandler<{ validation?: unknown; statusCode?: number; message: string
   app.log.error(err);
   reply.code(502).send({ message: 'The code runner is not responding. Try again in a moment.' });
 });
+
+// Expired links already can't be opened; this just frees the space.
+const purge = () => { const n = purgeExpired(); if (n) app.log.info(`deleted ${n} expired snippets`); };
+purge();
+setInterval(purge, HOUR).unref();
 
 await app.listen({ host: '0.0.0.0', port: Number(process.env.PORT ?? 3000) });
