@@ -209,9 +209,6 @@ button,select,textarea,input{font:inherit;color:inherit}
   .picker select{width:100%}
   .expires{order:3;width:100%}
   .bar-actions{width:100%;margin-left:0;flex-wrap:wrap}
-  .bar-actions > .btn:not(:last-child),.bar-actions .share{flex:1 1 auto}
-  .bar-actions .share > .btn{width:100%}
-  /* Run gets its own full-width row so it is never pushed off screen. */
-  .bar-actions > .btn:last-child{flex:1 1 100%}
+  .bar-actions > .btn:last-child{margin-left:auto}
   .panes{padding:10px}
 }
