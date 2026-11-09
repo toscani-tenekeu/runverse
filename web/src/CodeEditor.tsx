@@ -19,7 +19,7 @@ const highlight = HighlightStyle.define([
 ]);
 
 const theme = EditorView.theme({
-  '&': { height: '100%', fontSize: '14.5px', backgroundColor: 'var(--ed-bg)', color: 'var(--ed-ink)' },
+  '&': { height: '100%', backgroundColor: 'var(--ed-bg)', color: 'var(--ed-ink)' },
   '.cm-scroller': { fontFamily: 'var(--mono)', lineHeight: '1.65' },
   '.cm-content': { caretColor: 'var(--accent)', padding: '14px 0' },
   '.cm-cursor': { borderLeftColor: 'var(--accent)', borderLeftWidth: '2px' },
@@ -38,16 +38,34 @@ interface Props {
   mode: string;
   onChange: (value: string) => void;
   onRun: () => void;
+  fontSize: number;
+  wrap: boolean;
+  onCursor?: (pos: { line: number; col: number }) => void;
 }
 
-export function CodeEditor({ fileKey, value, mode, onChange, onRun }: Props) {
+const sizeTheme = (px: number) => EditorView.theme({ '&': { fontSize: `${px}px` } });
+
+export function CodeEditor({ fileKey, value, mode, onChange, onRun, fontSize, wrap, onCursor }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const states = useRef(new Map<string, EditorState>());
   const language = useRef(new Compartment());
   const modeExt = useRef<Extension>([]);
-  const handlers = useRef({ onChange, onRun });
-  handlers.current = { onChange, onRun };
+  const sizeC = useRef(new Compartment());
+  const wrapC = useRef(new Compartment());
+  const handlers = useRef({ onChange, onRun, onCursor });
+  handlers.current = { onChange, onRun, onCursor };
+  const prefs = useRef({ fontSize, wrap });
+  prefs.current = { fontSize, wrap };
+  const prefExtensions = () => [sizeC.current.of(sizeTheme(prefs.current.fontSize)), wrapC.current.of(prefs.current.wrap ? EditorView.lineWrapping : [])];
+  const reconfigurePrefs = (v: EditorView) => v.dispatch({ effects: [sizeC.current.reconfigure(sizeTheme(prefs.current.fontSize)), wrapC.current.reconfigure(prefs.current.wrap ? EditorView.lineWrapping : [])] });
+  const reportCursor = (state: EditorState) => {
+    const head = state.selection.main.head;
+    const line = state.doc.lineAt(head);
+    handlers.current.onCursor?.({ line: line.number, col: head - line.from + 1 });
+  };
+  // Put the caret in the code right away on a computer; on a phone that would pop the keyboard up.
+  const focusEditor = () => { if (matchMedia('(pointer: fine)').matches) view.current?.focus(); };
 
   const makeState = (doc: string) => EditorState.create({
     doc,
@@ -58,15 +76,20 @@ export function CodeEditor({ fileKey, value, mode, onChange, onRun }: Props) {
         { key: 'Mod-Enter', preventDefault: true, run: () => (handlers.current.onRun(), true) },
         indentWithTab, ...defaultKeymap, ...historyKeymap,
       ]),
-      syntaxHighlighting(highlight), theme,
+      syntaxHighlighting(highlight), theme, ...prefExtensions(),
       language.current.of(modeExt.current),
-      EditorView.updateListener.of(u => { if (u.docChanged) handlers.current.onChange(u.state.doc.toString()); }),
+      EditorView.updateListener.of(u => {
+        if (u.docChanged) handlers.current.onChange(u.state.doc.toString());
+        if (u.selectionSet || u.docChanged) reportCursor(u.state);
+      }),
     ],
   });
 
   useEffect(() => {
     view.current = new EditorView({ parent: host.current!, state: makeState(value) });
     states.current.set(fileKey, view.current.state);
+    reportCursor(view.current.state);
+    focusEditor();
     return () => view.current?.destroy();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -81,12 +104,17 @@ export function CodeEditor({ fileKey, value, mode, onChange, onRun }: Props) {
       const next = states.current.get(fileKey);
       v.setState(next && next.doc.toString() === value ? next : makeState(value));
       v.dispatch({ effects: language.current.reconfigure(modeExt.current) });
+      reconfigurePrefs(v);
+      reportCursor(v.state);
+      focusEditor();
     } else if (v.state.doc.toString() !== value) {
       // Content replaced from outside (reset, shared snippet loaded).
       v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: value } });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fileKey, value]);
+
+  useEffect(() => { if (view.current) reconfigurePrefs(view.current); }, [fontSize, wrap]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     let alive = true;

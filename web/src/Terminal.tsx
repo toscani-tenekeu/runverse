@@ -93,6 +93,9 @@ export function Terminal({ mode, onMode, height, onResize, files, folders, avail
     } else if (e.ctrlKey && e.key.toLowerCase() === 'l') { e.preventDefault(); setLines([]); }
   };
 
+  // Closed: nothing at all on screen. The status bar button and Ctrl+` bring it back.
+  if (!open) return null;
+
   return (
     <section className={`terminal terminal-${mode}`} aria-label="Terminal" style={mode === 'normal' ? { height } : undefined}>
       {mode === 'normal' && <Resizer axis="y" label="Resize terminal" onResize={d => onResize(-d)} />}
