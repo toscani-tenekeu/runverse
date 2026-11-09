@@ -7,6 +7,7 @@ import { downloadWorkspaceZip } from './export';
 import { useDialog } from './Dialog';
 import { Explorer, allFolders, type FileTab } from './Explorer';
 import { Resizer } from './Resizer';
+import { Terminal, type TerminalMode } from './Terminal';
 import { load, save } from './storage';
 import { ImportDialog, ImportReportDialog, SettingsDialog, ShareDialog, formatDate, type ImportKind } from './Settings';
 import { MAX_FILES as IMPORT_MAX_FILES, MAX_FOLDER_BYTES, formatBytes, readPicked, readWorkspaceZip, setPendingWorkspace, type Skipped } from './import';
@@ -31,6 +32,8 @@ const EXPIRIES: { id: Expiry; label: string }[] = [
 interface Layout { explorer: number; side: number; top: number; editor: number }
 const LAYOUT_KEY = 'rv-layout';
 const FILES_OPEN_KEY = 'rv-files-open';
+const TERMINAL_KEY = 'rv-terminal';
+const TERMINAL_HEIGHT_KEY = 'rv-terminal-height';
 const RAIL_WIDTH = 44;
 const DEFAULT_LAYOUT: Layout = { explorer: 220, side: 420, top: 170, editor: 440 };
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
@@ -66,6 +69,13 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
   const fileInput = useRef<HTMLInputElement>(null);
   const folderInput = useRef<HTMLInputElement>(null);
   const zipInput = useRef<HTMLInputElement>(null);
+  const [termMode, setTermMode] = useState<TerminalMode>(() => {
+    const m = load<{ mode?: string }>(TERMINAL_KEY)?.mode;
+    return m === 'normal' || m === 'expanded' ? m : 'collapsed';
+  });
+  const [termHeight, setTermHeight] = useState(() => clamp(load<number>(TERMINAL_HEIGHT_KEY) ?? 220, 120, 700));
+  const changeTermMode = (m: TerminalMode) => { setTermMode(m); save(TERMINAL_KEY, { mode: m }); };
+  const resizeTerm = (d: number) => setTermHeight(h => { const next = clamp(h + d, 120, 700); save(TERMINAL_HEIGHT_KEY, next); return next; });
   const [filesOpen, setFilesOpen] = useState(() => load<boolean>(FILES_OPEN_KEY) !== false);
   const toggleFiles = () => setFilesOpen(o => { save(FILES_OPEN_KEY, !o); return !o; });
   const [shared, setShared] = useState<{ id: string; expiresAt: number } | null>(null);
@@ -439,7 +449,16 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
         </section>
       </main>
 
+      <Terminal
+        mode={termMode} onMode={changeTermMode} height={termHeight} onResize={resizeTerm}
+        files={code.files} folders={folders} available={languages.some(l => l.id === 'bash' && l.installed)}
+      />
+
       <footer className="statusbar">
+        <button className="statusbar-btn" type="button" onClick={() => changeTermMode(termMode === 'collapsed' ? 'normal' : 'collapsed')} aria-pressed={termMode !== 'collapsed'} aria-label="Terminal" title="Terminal (Ctrl+`)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 8 4 4-4 4M12 17h7" /></svg>
+          Terminal
+        </button>
         <button className="statusbar-btn" type="button" onClick={() => setSettingsOpen(true)} aria-label="Settings">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5h0a1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
           Settings

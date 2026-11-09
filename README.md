@@ -27,7 +27,8 @@ A free, open-source online compiler you can host yourself.<br>
 - **24 languages**: C, C++, C#, Java, Python, JavaScript, TypeScript, Go, Rust, PHP, Kotlin, Swift, Ruby, Dart, Lua, Bash, R, Haskell, Scala, Elixir, Perl, Clojure, Zig and SQLite
 - **HTML, CSS & JS** with a live preview and console, running safely in a sandboxed frame in the browser
 - **Files and folders** per project (`lib/utils.py`), with standard input and separate stdout, stderr and compiler output
-- **Import and export**: bring in files (up to 1 MB each), a folder (up to 100 MB) or a whole workspace, and export the workspace as a `.zip` that Import reads back exactly. Compressed and non-text files are not accepted
+- **Import and export**: import files (1 MB each at most), a folder (100 MB at most) or a whole workspace. Export gives a `.zip` that Import can read back. Zip, gzip and other compressed files are refused, and so are non-text files
+- **Terminal**: type shell commands against your files. The panel can be collapsed, expanded or resized, and it needs Bash installed
 - **Share links** that expire after 1 hour, 1, 7, 15, 20 or 30 days, your choice
 - **Resizable panes**, and light and dark editor themes
 - **Safe by default**: every run is sandboxed by [Piston](https://github.com/engineer-man/piston) with no network, plus time, memory and process limits and per-IP rate limits
@@ -41,7 +42,7 @@ You need Docker with Compose v2.
 ```bash
 git clone https://github.com/toscani-tenekeu/runverse.git
 cd runverse && docker compose up -d
-./scripts/languages.sh python cpp java   # or: ./scripts/languages.sh all
+./scripts/languages.sh python cpp java bash   # or: ./scripts/languages.sh all
 ```
 
 Runverse is then live at **http://localhost:8085**, and it asks you to sign in. An admin username and a random password are generated the first time it starts and printed in the log:
@@ -52,11 +53,12 @@ docker compose logs api     # shows "Username: admin" and "Password: …" once
 
 - `./scripts/languages.sh` with no arguments lists the language ids. Installing `all` downloads about 10–15 GB.
 - C#, Java, Go and JavaScript use current toolchains built by `piston-packages/` (.NET 8, Java 21, the latest Go, Node.js 22), and C/C++ compile as C17/C++20, so modern code (records, generics, concepts…) runs as it does locally. Swift is still 5.3 because newer Swift needs a newer base system than the Piston image.
+- The terminal runs on the Bash language, so install it (`./scripts/languages.sh bash`) if you want the terminal.
 - `./scripts/smoke.sh` runs hello-world in every installed language to check your install.
 
 ### Sign-in
 
-Sign-in is **on** by default, so nobody who finds your server can run code on it. Change it any time, without a restart:
+Sign-in is **on** by default, so nobody who finds your server can run code on it. You can change it at any time without a restart:
 
 ```bash
 ./scripts/auth.sh status   # is sign-in on or off?
@@ -65,7 +67,7 @@ Sign-in is **on** by default, so nobody who finds your server can run code on it
 ./scripts/auth.sh reset    # lost the password? generate and show a new one
 ```
 
-The password is stored hashed, so it is shown only when generated (first start, `on` or `reset`). Resetting signs everyone out. Only turn sign-in off on a private network or behind your own access control. Share links need a sign-in too while it is on.
+The password is stored hashed, so it is shown only when it is generated: at the first start, on `on` and on `reset`. Resetting signs everyone out. Turn sign-in off only on a private network or behind your own access control. While it is on, share links also need a sign-in.
 
 ### Configuration
 
@@ -92,12 +94,12 @@ Copy `.env.example` to `.env` and change what you need:
 git pull && docker compose up -d --build
 ```
 
-Installed languages and share links live in Docker volumes, so they survive updates.
+Installed languages and share links live in Docker volumes, so they survive updates. Piston is built from `piston/Dockerfile` (it only raises the request size limit), so the first update restarts the code runner.
 
 ## Architecture
 
 ```
-browser ──▶ frontend (nginx) ──▶ /           landing page
+browser ──▶ frontend (nginx) ──▶ /           redirects to the editor (landing page if enabled)
                              ├─▶ /editor/*   React app
                              └─▶ /api/*  ──▶ api (Node + Fastify) ──▶ piston (sandbox)
                                                    └─ SQLite (share links)
@@ -105,9 +107,10 @@ browser ──▶ frontend (nginx) ──▶ /           landing page
 
 | Path | What |
 |---|---|
-| [`landing/`](landing) | The landing page, plain HTML, CSS and JS |
+| [`landing/`](landing) | The landing page, plain HTML, CSS and JS. Only served when `RUNVERSE_LANDING=true` |
 | [`web/`](web) | The editor: React 19, TanStack Router and Query, CodeMirror 6, built with Bun and Vite |
-| [`api/`](api) | Fastify on Node 24: runs code through Piston, stores share links, rate limits |
+| [`api/`](api) | Fastify on Node 24: runs code and terminal commands through Piston, stores share links, handles sign-in, rate limits |
+| [`piston/`](piston) | Piston's image with a larger request size limit |
 | [`docker-compose.yml`](docker-compose.yml) | The `frontend`, `api` and `piston` services |
 
 Language metadata (names, starter code, Piston packages) lives in [`api/src/languages.ts`](api/src/languages.ts).

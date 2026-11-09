@@ -164,6 +164,28 @@ button,select,textarea,input{font:inherit;color:inherit}
 .status.bad{color:var(--bad)}
 .preview-frame{flex:1;width:100%;border:0;background:#fff}
 
+/* Terminal */
+.terminal{position:relative;display:flex;flex-direction:column;margin:0 12px 8px;border-radius:14px;overflow:hidden;background:var(--ed-bg);color:var(--ed-ink);box-shadow:0 0 0 1px var(--ed-line);flex-shrink:0}
+.terminal-expanded{height:min(62vh,680px)}
+.terminal .resizer-y{position:absolute;inset:-6px 0 auto;z-index:2;height:12px}
+.terminal-head{display:flex;align-items:center;gap:4px;padding:4px 6px 4px 8px;background:var(--ed-bar);border-bottom:1px solid var(--ed-line)}
+.terminal-collapsed .terminal-head{border-bottom:0}
+.terminal-head button{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 8px;border:0;border-radius:7px;background:none;color:var(--ed-ink);cursor:pointer;opacity:.8}
+.terminal-head button:hover,.terminal-head button:focus-visible{opacity:1;background:rgba(127,127,127,.18)}
+.terminal-head svg{width:16px;height:16px}
+.terminal-title span{font-size:.8rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.terminal-cwd{font:500 .8rem var(--mono);opacity:.6}
+.terminal-spacer{flex:1}
+.terminal-body{flex:1;min-height:0;overflow:auto;padding:10px 14px;font:.85rem/1.5 var(--mono);cursor:text}
+.terminal-body pre{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}
+.term-cmd{color:var(--ed-ink);font-weight:600}
+.term-err{color:var(--bad)}
+.term-info{opacity:.6}
+.terminal-input{display:flex;align-items:center;gap:8px}
+.terminal-input span{white-space:nowrap;opacity:.7}
+.terminal-input input{flex:1;min-width:0;padding:0;border:0;background:none;color:inherit;font:inherit;outline:none}
+.terminal-input input::placeholder{opacity:.4}
+
 /* Dialog */
 .dialog{
   width:min(520px,calc(100% - 32px));padding:0;border:0;border-radius:16px;
@@ -258,6 +280,7 @@ button,select,textarea,input{font:inherit;color:inherit}
   .preview{height:420px;flex:none}
 }
 @media (max-width:640px){
+  .terminal{margin:0 10px 8px}
   .bar{gap:10px;padding:10px 12px}
   .brand span{display:none}
   .picker{flex:1}
