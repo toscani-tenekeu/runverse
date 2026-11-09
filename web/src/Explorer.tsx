@@ -14,6 +14,8 @@ interface Props {
   onDeleteFile: (file: FileTab) => void;
   onDeleteFolder: (folder: string) => void;
   onSetEntry: (file: FileTab) => void;
+  open: boolean; // the whole panel, not a folder
+  onTogglePanel: () => void;
 }
 
 const parent = (path: string) => path.slice(0, Math.max(0, path.lastIndexOf('/')));
@@ -39,6 +41,8 @@ const ICONS = {
   trash: 'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13',
   play: 'M7 5.5v13l11-6.5z',
   chevron: 'M9 6l6 6-6 6',
+  hide: 'M15 6l-6 6 6 6M5 5v14',
+  show: 'M9 6l6 6-6 6M19 5v14',
 };
 
 export function Explorer(p: Props) {
@@ -93,12 +97,24 @@ export function Explorer(p: Props) {
     );
   };
 
+  if (!p.open) {
+    return (
+      <nav className="explorer is-collapsed" aria-label="Files">
+        <button type="button" className="explorer-rail" onClick={p.onTogglePanel} aria-expanded={false} title="Show files" aria-label="Show files">
+          <Icon d={ICONS.show} />
+          <span>Files</span>
+        </button>
+      </nav>
+    );
+  }
+
   return (
     <nav className="explorer" aria-label="Files">
       <div className="explorer-head">
         <span>Files</span>
         <button type="button" title="New file" aria-label="New file" onClick={() => p.onNewFile('')}><Icon d={ICONS.newFile} /></button>
         <button type="button" title="New folder" aria-label="New folder" onClick={() => p.onNewFolder('')}><Icon d={ICONS.newFolder} /></button>
+        <button type="button" title="Hide files" aria-label="Hide files" aria-expanded={true} onClick={p.onTogglePanel}><Icon d={ICONS.hide} /></button>
       </div>
       <ul className="tree">{renderFolder('', 0)}</ul>
     </nav>
