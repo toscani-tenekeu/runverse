@@ -43,7 +43,7 @@ cd runverse && docker compose up -d
 ./scripts/languages.sh python cpp java   # or: ./scripts/languages.sh all
 ```
 
-Runverse is then live at **http://localhost:8085**.
+Runverse is then live at **http://localhost:8085**. A self-hosted install is just the editor (the landing page isn't included), so `/` opens the editor directly.
 
 - `./scripts/languages.sh` with no arguments lists the language ids. Installing `all` downloads about 10–15 GB.
 - C#, Java, Go and JavaScript use current toolchains built by `piston-packages/` (.NET 8, Java 21, the latest Go, Node.js 22), and C/C++ compile as C17/C++20, so modern code (records, generics, concepts…) runs as it does locally. Swift is still 5.3 because newer Swift needs a newer base system than the Piston image.
@@ -57,6 +57,7 @@ Copy `.env.example` to `.env` and change what you need:
 |---|---|---|
 | `RUNVERSE_PORT` | `8085` | Port the site is published on |
 | `RUNVERSE_BIND` | `0.0.0.0` | Set to `127.0.0.1` behind a reverse proxy |
+| `RUNVERSE_LANDING` | `false` | Set to `true` to also serve the landing page at `/` (rebuild with `docker compose up -d --build`) |
 | `RUN_TIMEOUT_MS` | `3000` | Time limit for each run |
 | `MEMORY_LIMIT_BYTES` | `536870912` | Memory limit for each run (512 MB) |
 | `PISTON_MEMORY` | `3g` | Memory cap for the whole code runner |
