@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import rateLimit from '@fastify/rate-limit';
 import { LANGUAGES, byId } from './languages.js';
 import { execute, runtimes, type PistonRuntime } from './piston.js';
+import { COOKIE, isEnabled, checkLogin, initAuth, newSession, username, validSession } from './auth.js';
 import { deleteSnippet, getSnippet, purgeExpired, saveSnippet, type Snippet } from './db.js';
 
 const RUNS_PER_MINUTE = Number(process.env.RUNS_PER_MINUTE ?? 30);
@@ -20,6 +21,43 @@ await app.register(rateLimit, {
     message: `Slow down a little: you can try again in ${ctx.after}.`,
   }),
 });
+
+initAuth();
+
+// With sign-in on, everything except the health check and the auth routes needs a session.
+app.addHook('onRequest', async (req, reply) => {
+  if (!isEnabled()) return;
+  const path = req.url.split('?')[0];
+  if (!path.startsWith('/api/') || path === '/api/health' || path.startsWith('/api/auth/')) return;
+  if (!validSession(req.headers.cookie)) return reply.code(401).send({ message: 'Sign in to continue.' });
+});
+
+const cookie = (value: string, maxAge: number, secure: boolean) =>
+  `${COOKIE}=${value}; Path=/; Max-Age=${maxAge}; HttpOnly; SameSite=Lax${secure ? '; Secure' : ''}`;
+
+app.get('/api/auth/me', async req => {
+  if (!isEnabled()) return { authEnabled: false, authenticated: true };
+  const authenticated = validSession(req.headers.cookie);
+  return { authEnabled: true, authenticated, username: authenticated ? username() : undefined };
+});
+
+app.post<{ Body: { username: string; password: string } }>('/api/auth/login', {
+  schema: {
+    body: {
+      type: 'object', required: ['username', 'password'], additionalProperties: false,
+      properties: { username: { type: 'string', maxLength: 100 }, password: { type: 'string', maxLength: 200 } },
+    },
+  },
+  config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+}, async (req, reply) => {
+  if (!isEnabled()) return { ok: true };
+  if (!checkLogin(req.body.username, req.body.password)) return reply.code(401).send({ message: 'Wrong username or password.' });
+  const session = newSession();
+  return reply.header('set-cookie', cookie(session.value, session.maxAge, req.protocol === 'https')).send({ ok: true });
+});
+
+app.post('/api/auth/logout', async (req, reply) =>
+  reply.header('set-cookie', cookie('', 0, req.protocol === 'https')).send({ ok: true }));
 
 const codeBody = {
   type: 'object',

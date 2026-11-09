@@ -43,11 +43,28 @@ cd runverse && docker compose up -d
 ./scripts/languages.sh python cpp java   # or: ./scripts/languages.sh all
 ```
 
-Runverse is then live at **http://localhost:8085**. A self-hosted install is just the editor (the landing page isn't included), so `/` opens the editor directly.
+Runverse is then live at **http://localhost:8085**, and it asks you to sign in. An admin username and a random password are generated the first time it starts and printed in the log:
+
+```bash
+docker compose logs api     # shows "Username: admin" and "Password: …" once
+``` A self-hosted install is just the editor (the landing page isn't included), so `/` opens the editor directly.
 
 - `./scripts/languages.sh` with no arguments lists the language ids. Installing `all` downloads about 10–15 GB.
 - C#, Java, Go and JavaScript use current toolchains built by `piston-packages/` (.NET 8, Java 21, the latest Go, Node.js 22), and C/C++ compile as C17/C++20, so modern code (records, generics, concepts…) runs as it does locally. Swift is still 5.3 because newer Swift needs a newer base system than the Piston image.
 - `./scripts/smoke.sh` runs hello-world in every installed language to check your install.
+
+### Sign-in
+
+Sign-in is **on** by default, so nobody who finds your server can run code on it. Change it any time, without a restart:
+
+```bash
+./scripts/auth.sh status   # is sign-in on or off?
+./scripts/auth.sh on       # switch on: a new admin password is generated and shown
+./scripts/auth.sh off      # switch off: the editor is open to anyone who can reach it
+./scripts/auth.sh reset    # lost the password? generate and show a new one
+```
+
+The password is stored hashed, so it is shown only when generated (first start, `on` or `reset`). Resetting signs everyone out. Only turn sign-in off on a private network or behind your own access control. Share links need a sign-in too while it is on.
 
 ### Configuration
 
@@ -57,6 +74,7 @@ Copy `.env.example` to `.env` and change what you need:
 |---|---|---|
 | `RUNVERSE_PORT` | `8085` | Port the site is published on |
 | `RUNVERSE_BIND` | `0.0.0.0` | Set to `127.0.0.1` behind a reverse proxy |
+| `RUNVERSE_AUTH` | `true` | Starting state of sign-in, read only the first time Runverse runs. Afterwards use `./scripts/auth.sh` |
 | `RUNVERSE_LANDING` | `false` | Set to `true` to also serve the landing page at `/` (rebuild with `docker compose up -d --build`) |
 | `RUN_TIMEOUT_MS` | `3000` | Time limit for each run |
 | `MEMORY_LIMIT_BYTES` | `536870912` | Memory limit for each run (512 MB) |

@@ -43,6 +43,7 @@ services:
     environment:
       PISTON_URL: http://piston:2000
       DATA_DIR: /data
+      RUNVERSE_AUTH: ${RUNVERSE_AUTH:-true} # false: open to anyone who can reach the site
       RUNS_PER_MINUTE: ${RUNS_PER_MINUTE:-30}
       SHARES_PER_HOUR: ${SHARES_PER_HOUR:-20}
     volumes:

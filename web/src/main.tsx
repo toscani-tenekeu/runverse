@@ -1,10 +1,11 @@
-import { StrictMode } from 'react';
+import { StrictMode, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
-import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createRootRoute, createRoute, createRouter, redirect, Link, Outlet, RouterProvider,
 } from '@tanstack/react-router';
-import { getSnippet, languagesQuery, type Code, type Language } from './api';
+import { authQuery, getSnippet, languagesQuery, type Code, type Language } from './api';
+import { Login } from './Login';
 import { Workspace, Logo, draftKey, starter } from './Workspace';
 import { load } from './storage';
 import './styles.css';
@@ -56,8 +57,23 @@ function Message({ title, text, languages }: { title: string; text?: string; lan
   );
 }
 
+// With sign-in on, nothing but the sign-in page is shown until there is a session.
+function AuthGate() {
+  const qc = useQueryClient();
+  const { data, isPending } = useQuery(authQuery);
+  useEffect(() => {
+    const again = () => qc.invalidateQueries({ queryKey: ['auth'] });
+    addEventListener('rv-unauthorized', again);
+    return () => removeEventListener('rv-unauthorized', again);
+  }, [qc]);
+  if (isPending) return <Message title="Loading…" />;
+  // If the auth check itself fails, let the pages show their own "can't reach its server" message.
+  if (data?.authEnabled && !data.authenticated) return <Login />;
+  return <Outlet />;
+}
+
 const rootRoute = createRootRoute({
-  component: Outlet,
+  component: AuthGate,
   notFoundComponent: () => <Message title="This page doesn't exist." />,
 });
 const editorIndex = createRoute({

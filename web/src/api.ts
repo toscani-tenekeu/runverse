@@ -23,6 +23,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { ...(init?.body ? { 'content-type': 'application/json' } : {}), ...(init?.headers as Record<string, string> | undefined) },
   });
   const body = await res.json().catch(() => ({ message: `The server returned ${res.status}.` }));
+  // A session that ended (or never started): the app shows the sign-in page again.
+  if (res.status === 401 && !path.startsWith('/auth/')) dispatchEvent(new Event('rv-unauthorized'));
   if (!res.ok) throw new Error(body.message ?? `The server returned ${res.status}.`);
   return body as T;
 }
@@ -36,3 +38,10 @@ export const deleteSharedLink = (id: string, token: string) =>
 export const getSnippet = (id: string) => request<Code & { expiresAt: number }>(`/snippets/${id}`);
 
 export const languagesQuery = { queryKey: ['languages'], queryFn: getLanguages, staleTime: 60_000 };
+
+export interface AuthState { authEnabled: boolean; authenticated: boolean; username?: string }
+export const getAuth = () => request<AuthState>('/auth/me');
+export const signIn = (credentials: { username: string; password: string }) =>
+  request<unknown>('/auth/login', { method: 'POST', body: JSON.stringify(credentials) });
+export const signOut = () => request<unknown>('/auth/logout', { method: 'POST' });
+export const authQuery = { queryKey: ['auth'], queryFn: getAuth, staleTime: 60_000 };
