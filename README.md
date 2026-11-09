@@ -49,7 +49,9 @@ Runverse is then live at **http://localhost:8085**, and it asks you to sign in. 
 
 ```bash
 docker compose logs api     # shows "Username: admin" and "Password: …" once
-``` A self-hosted install is just the editor (the landing page isn't included), so `/` opens the editor directly.
+```
+
+A self-hosted install is just the editor (the landing page isn't included), so `/` opens the editor directly.
 
 - `./scripts/languages.sh` with no arguments lists the language ids. Installing `all` downloads about 10–15 GB.
 - C#, Java, Go and JavaScript use current toolchains built by `piston-packages/` (.NET 8, Java 21, the latest Go, Node.js 22), and C/C++ compile as C17/C++20, so modern code (records, generics, concepts…) runs as it does locally. Swift is still 5.3 because newer Swift needs a newer base system than the Piston image.
