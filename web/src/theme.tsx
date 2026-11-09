@@ -6,26 +6,17 @@ const KEY = 'rv-theme';
 
 const systemDark = () => matchMedia('(prefers-color-scheme: dark)').matches;
 
-export function ThemeToggle() {
+export function useTheme() {
   const [dark, setDark] = useState(() => {
     const t = document.documentElement.dataset.theme;
     return t ? t === 'dark' : systemDark();
   });
 
-  const toggle = () => {
-    const next = dark ? 'light' : 'dark';
+  const setTheme = (next: 'light' | 'dark') => {
     document.documentElement.dataset.theme = next;
     save(KEY, next);
-    setDark(!dark);
+    setDark(next === 'dark');
   };
 
-  return (
-    <button className="icon-btn" type="button" onClick={toggle} aria-label={dark ? 'Switch to light theme' : 'Switch to dark theme'}>
-      {dark ? (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2" /><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6" /></svg>
-      ) : (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" /></svg>
-      )}
-    </button>
-  );
+  return { dark, setTheme };
 }
