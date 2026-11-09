@@ -119,6 +119,13 @@ button,select,textarea,input{font:inherit;color:inherit}
 .explorer-head button,.node-actions button{display:grid;place-items:center;width:28px;height:28px;border:0;border-radius:7px;background:none;cursor:pointer;color:var(--muted)}
 .explorer-head button:hover,.node-actions button:hover{background:var(--hover);color:var(--ink)}
 .explorer svg{width:16px;height:16px;flex-shrink:0}
+.explorer.is-collapsed{align-items:stretch}
+.explorer-rail{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:12px;padding:12px 0;border:0;background:none;
+  color:var(--muted);cursor:pointer;
+}
+.explorer-rail:hover,.explorer-rail:focus-visible{background:var(--hover);color:var(--ink)}
+.explorer-rail span{writing-mode:vertical-rl;font-size:.8rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
 .tree,.tree ul{list-style:none;margin:0;padding:0}
 .tree{flex:1;overflow:auto;padding:6px}
 .node{display:flex;align-items:center;border-radius:8px}
@@ -219,6 +226,9 @@ button,select,textarea,input{font:inherit;color:inherit}
   .desktop-only{display:none}
   .mobile-only{display:block}
   .explorer{max-height:220px;margin-bottom:12px}
+  .explorer.is-collapsed{max-height:none}
+  .explorer-rail{flex-direction:row;justify-content:flex-start;gap:10px;padding:10px 14px}
+  .explorer-rail span{writing-mode:horizontal-tb}
   .editor-pane{height:var(--editor-h)}
   .side{margin-top:0}
   .output,.preview{min-height:280px}

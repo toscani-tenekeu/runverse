@@ -29,6 +29,8 @@ const EXPIRIES: { id: Expiry; label: string }[] = [
 // Pane sizes in pixels, remembered between visits.
 interface Layout { explorer: number; side: number; top: number; editor: number }
 const LAYOUT_KEY = 'rv-layout';
+const FILES_OPEN_KEY = 'rv-files-open';
+const RAIL_WIDTH = 44;
 const DEFAULT_LAYOUT: Layout = { explorer: 220, side: 420, top: 170, editor: 440 };
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
@@ -58,6 +60,8 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
   const [toast, setToast] = useState('');
   const [shareOpen, setShareOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [filesOpen, setFilesOpen] = useState(() => load<boolean>(FILES_OPEN_KEY) !== false);
+  const toggleFiles = () => setFilesOpen(o => { save(FILES_OPEN_KEY, !o); return !o; });
   const [shared, setShared] = useState<{ id: string; expiresAt: number } | null>(null);
   const [layout, setLayout] = useState<Layout>(() => ({ ...DEFAULT_LAYOUT, ...load<Partial<Layout>>(LAYOUT_KEY) }));
   const current = files.find(f => f.key === active) ?? files[0];
@@ -247,7 +251,7 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
   const resize = (key: keyof Layout, min: number, max: number) => (delta: number) =>
     setLayout(l => ({ ...l, [key]: clamp(l[key] + delta, min, max) }));
   const style = {
-    '--explorer-w': `${layout.explorer}px`,
+    '--explorer-w': `${filesOpen ? layout.explorer : RAIL_WIDTH}px`,
     '--side-w': `${layout.side}px`,
     '--top-h': `${layout.top}px`,
     '--editor-h': `${layout.editor}px`,
@@ -316,8 +320,11 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
           onRenameFile={renameFile} onRenameFolder={renameFolder}
           onDeleteFile={deleteFile} onDeleteFolder={deleteFolder}
           onSetEntry={setEntry}
+          open={filesOpen} onTogglePanel={toggleFiles}
         />
-        <Resizer axis="x" className="desktop-only" label="Resize file list" onResize={resize('explorer', 140, 480)} />
+        {filesOpen
+          ? <Resizer axis="x" className="desktop-only" label="Resize file list" onResize={resize('explorer', 140, 480)} />
+          : <div className="desktop-only" aria-hidden="true" />}
 
         <section className="pane editor-pane" aria-label="Code">
           <div className="editor-head">
