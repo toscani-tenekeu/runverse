@@ -7,6 +7,7 @@ import {
 import { authQuery, getSnippet, languagesQuery, type Code, type Language } from './api';
 import { Login } from './Login';
 import { Workspace, Logo, draftKey, starter } from './Workspace';
+import { takePendingWorkspace } from './import';
 import { load } from './storage';
 import './styles.css';
 
@@ -20,7 +21,7 @@ function EditorPage() {
   const l = data.find(x => x.id === lang);
   if (!l) return <Message title={`“${lang}” isn't a language Runverse knows.`} languages={data} />;
   if (!l.installed) return <Message title={`${l.name} isn't installed on this server yet.`} languages={data} />;
-  const draft = load<Code>(draftKey(l.id));
+  const draft = takePendingWorkspace(l.id) ?? load<Code>(draftKey(l.id));
   // `key` gives each language a fresh workspace instead of carrying files across.
   return <Workspace key={l.id} lang={l} initial={draft?.files?.length ? draft : starter(l)} persist />;
 }

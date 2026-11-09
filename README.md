@@ -27,6 +27,7 @@ A free, open-source online compiler you can host yourself.<br>
 - **24 languages**: C, C++, C#, Java, Python, JavaScript, TypeScript, Go, Rust, PHP, Kotlin, Swift, Ruby, Dart, Lua, Bash, R, Haskell, Scala, Elixir, Perl, Clojure, Zig and SQLite
 - **HTML, CSS & JS** with a live preview and console, running safely in a sandboxed frame in the browser
 - **Files and folders** per project (`lib/utils.py`), with standard input and separate stdout, stderr and compiler output
+- **Import and export**: bring in files (up to 1 MB each), a folder (up to 100 MB) or a whole workspace, and export the workspace as a `.zip` that Import reads back exactly. Compressed and non-text files are not accepted
 - **Share links** that expire after 1 hour, 1, 7, 15, 20 or 30 days, your choice
 - **Resizable panes**, and light and dark editor themes
 - **Safe by default**: every run is sandboxed by [Piston](https://github.com/engineer-man/piston) with no network, plus time, memory and process limits and per-IP rate limits
@@ -81,6 +82,7 @@ Copy `.env.example` to `.env` and change what you need:
 | `PISTON_MEMORY` | `3g` | Memory cap for the whole code runner |
 | `PISTON_CPUS` | `2` | CPU cap for the whole code runner |
 | `MAX_CONCURRENT_RUNS` | `4` | Runs executed at once; the rest wait in a queue |
+| `MAX_WORKSPACE_MB` | `100` | Biggest workspace (all files together) a run or share link can carry. Lower it on a public server |
 | `RUNS_PER_MINUTE` | `30` | Runs allowed per visitor IP |
 | `SHARES_PER_HOUR` | `20` | Share links allowed per visitor IP |
 

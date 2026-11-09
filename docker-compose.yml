@@ -2,7 +2,9 @@ name: runverse
 
 services:
   piston:
-    image: ghcr.io/engineer-man/piston:latest
+    # Piston's own image with a bigger request limit (it stops at 100 KB), so larger workspaces can run.
+    build: ./piston
+    image: runverse-piston
     privileged: true # required by Piston's isolate sandbox
     restart: unless-stopped
     # Caps for the whole runner, so a traffic spike can't starve the rest of the machine.
@@ -46,6 +48,7 @@ services:
       RUNVERSE_AUTH: ${RUNVERSE_AUTH:-true} # false: open to anyone who can reach the site
       RUNS_PER_MINUTE: ${RUNS_PER_MINUTE:-30}
       SHARES_PER_HOUR: ${SHARES_PER_HOUR:-20}
+      MAX_WORKSPACE_MB: ${MAX_WORKSPACE_MB:-100} # biggest workspace a run or share link can carry
     volumes:
       - runverse_data:/data
     networks: [internal]

@@ -8,7 +8,8 @@ import { useDialog } from './Dialog';
 import { Explorer, allFolders, type FileTab } from './Explorer';
 import { Resizer } from './Resizer';
 import { load, save } from './storage';
-import { SettingsDialog, ShareDialog, formatDate } from './Settings';
+import { ImportDialog, ImportReportDialog, SettingsDialog, ShareDialog, formatDate, type ImportKind } from './Settings';
+import { MAX_FILES as IMPORT_MAX_FILES, MAX_FOLDER_BYTES, formatBytes, readPicked, readWorkspaceZip, setPendingWorkspace, type Skipped } from './import';
 import { rememberLink } from './links';
 import { WebPreview, buildDocument, type LogLine } from './WebPreview';
 
@@ -19,7 +20,7 @@ export const starter = (l: Language): Code => ({ language: l.id, files: l.files 
 
 // Same rule as the API: up to 5 folder levels, names of letters, digits, dot, dash, underscore.
 const PATH = /^([A-Za-z0-9_][A-Za-z0-9_.-]{0,63}\/){0,4}[A-Za-z0-9_][A-Za-z0-9_.-]{0,63}$/;
-const MAX_FILES = 20;
+const MAX_FILES = IMPORT_MAX_FILES;
 
 const EXPIRIES: { id: Expiry; label: string }[] = [
   { id: '1h', label: '1 hour' }, { id: '1d', label: '1 day' }, { id: '7d', label: '7 days' },
@@ -60,6 +61,11 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
   const [toast, setToast] = useState('');
   const [shareOpen, setShareOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [report, setReport] = useState<{ added: number; replaced: number; skipped: Skipped[] } | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const folderInput = useRef<HTMLInputElement>(null);
+  const zipInput = useRef<HTMLInputElement>(null);
   const [filesOpen, setFilesOpen] = useState(() => load<boolean>(FILES_OPEN_KEY) !== false);
   const toggleFiles = () => setFilesOpen(o => { save(FILES_OPEN_KEY, !o); return !o; });
   const [shared, setShared] = useState<{ id: string; expiresAt: number } | null>(null);
@@ -73,8 +79,11 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
     stdin,
   }), [lang.id, files, folders, stdin]);
 
+  // Drafts live in localStorage (about 5 MB), so big imported workspaces are not kept as drafts.
   useEffect(() => {
-    if (persist) save(draftKey(lang.id), code);
+    if (!persist) return;
+    const size = code.files.reduce((n, f) => n + f.content.length, 0);
+    save(draftKey(lang.id), size > 1_000_000 ? null : code);
   }, [persist, lang.id, code]);
   useEffect(() => { save(LAYOUT_KEY, layout); }, [layout]);
 
@@ -247,6 +256,65 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
     run.reset();
   };
 
+  // ---- Import ----
+  const chooseImport = (kind: ImportKind) => {
+    setImportOpen(false);
+    (kind === 'files' ? fileInput : kind === 'folder' ? folderInput : zipInput).current?.click();
+  };
+
+  const addPicked = async (list: FileList | null, kind: 'files' | 'folder') => {
+    if (!list?.length) return;
+    try {
+      const { files: picked, skipped } = await readPicked(list, kind);
+      const names = new Set(picked.map(f => f.name));
+      const replaced = files.filter(f => names.has(f.name)).length;
+      const keep = files.filter(f => !names.has(f.name));
+      if (keep.length + picked.length > MAX_FILES) return flash(`A workspace holds ${MAX_FILES} files at most.`);
+      const total = [...keep, ...picked].reduce((n, f) => n + f.content.length, 0);
+      if (total > MAX_FOLDER_BYTES) return flash(`That would make the workspace bigger than ${formatBytes(MAX_FOLDER_BYTES)}.`);
+      if (!picked.length) return setReport({ added: 0, replaced: 0, skipped });
+      const tabs = picked.map(f => ({ key: String(nextKey++), ...f }));
+      setFiles([...keep, ...tabs]);
+      setActive(tabs[0].key);
+      if (skipped.length) setReport({ added: picked.length, replaced, skipped });
+      else flash(`Imported ${picked.length} file${picked.length === 1 ? '' : 's'}${replaced ? `, replaced ${replaced}` : ''}.`);
+    } catch (e) {
+      flash(e instanceof Error ? e.message : 'Could not import that.');
+    }
+  };
+
+  const importWorkspace = async (list: FileList | null) => {
+    const file = list?.[0];
+    if (!file) return;
+    try {
+      const imported = await readWorkspaceZip(file);
+      if (!languages.some(l => l.id === imported.language && l.installed)) return flash(`This workspace uses “${imported.language}”, which this server doesn't have.`);
+      const ok = await dialog.confirm({
+        title: 'Replace your workspace?',
+        message: `Your current files will be replaced by the ${imported.files.length} file${imported.files.length === 1 ? '' : 's'} in ${file.name}.`,
+        confirmLabel: 'Import',
+        danger: true,
+      });
+      if (!ok) return;
+      if (imported.language !== lang.id) {
+        // A different language is a different editor page: open it with this workspace.
+        setPendingWorkspace(imported);
+        navigate({ to: '/editor/$lang', params: { lang: imported.language } });
+        return;
+      }
+      const tabs = toTabs(imported);
+      setFiles(tabs);
+      setFolders(imported.folders ?? []);
+      setActive(tabs[0].key);
+      setStdin(imported.stdin);
+      setCollapsed(new Set());
+      run.reset();
+      flash('Workspace imported.');
+    } catch (e) {
+      flash(e instanceof Error ? e.message : 'Could not import that workspace.');
+    }
+  };
+
   // ---- Layout ----
   const resize = (key: keyof Layout, min: number, max: number) => (delta: number) =>
     setLayout(l => ({ ...l, [key]: clamp(l[key] + delta, min, max) }));
@@ -279,11 +347,14 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
           <button className="icon-btn" type="button" onClick={reset} title="Reset to the starter example" aria-label="Reset">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /></svg>
           </button>
+          <button className="icon-btn" type="button" title="Import files, a folder or a workspace" aria-label="Import" onClick={() => setImportOpen(true)}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" /><path d="M12 3v12" /><path d="m8 11 4 4 4-4" /></svg>
+          </button>
           <button
-            className="icon-btn" type="button" title="Export as .zip" aria-label="Export as .zip"
+            className="icon-btn" type="button" title="Export workspace as .zip" aria-label="Export workspace as .zip"
             onClick={() => downloadWorkspaceZip(code, `runverse-${lang.id}`)}
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" /><path d="M12 15V3" /><path d="m8 7 4-4 4 4" /></svg>
           </button>
           <div className="share" ref={shareRef}>
             <button
@@ -375,6 +446,11 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
         </button>
       </footer>
 
+      <input ref={fileInput} type="file" multiple hidden onChange={e => { addPicked(e.target.files, 'files'); e.target.value = ''; }} />
+      <input ref={folderInput} type="file" hidden {...{ webkitdirectory: '', directory: '' }} onChange={e => { addPicked(e.target.files, 'folder'); e.target.value = ''; }} />
+      <input ref={zipInput} type="file" accept=".zip,application/zip" hidden onChange={e => { importWorkspace(e.target.files); e.target.value = ''; }} />
+      {importOpen && <ImportDialog onChoose={chooseImport} onClose={() => setImportOpen(false)} />}
+      {report && <ImportReportDialog report={report} onClose={() => setReport(null)} />}
       {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} onError={flash} />}
       {shared && <ShareDialog id={shared.id} expiresAt={shared.expiresAt} onClose={() => setShared(null)} />}
       {dialog.element}
