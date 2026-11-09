@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
-import { deleteSharedLink } from './api';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { authQuery, deleteSharedLink, signOut } from './api';
 import { forgetLink, linkUrl, useSharedLinks } from './links';
 import { useTheme } from './theme';
 
@@ -37,6 +37,9 @@ export function CopyButton({ text, label = 'Copy' }: { text: string; label?: str
 export function SettingsDialog({ onClose, onError }: { onClose: () => void; onError: (message: string) => void }) {
   const { dark, setTheme } = useTheme();
   const links = useSharedLinks();
+  const qc = useQueryClient();
+  const auth = useQuery(authQuery).data;
+  const leave = useMutation({ mutationFn: signOut, onSuccess: () => qc.invalidateQueries({ queryKey: ['auth'] }) });
   const remove = useMutation({
     mutationFn: (l: { id: string; token: string }) => deleteSharedLink(l.id, l.token),
     onSuccess: (_d, l) => forgetLink(l.id),
@@ -76,6 +79,16 @@ export function SettingsDialog({ onClose, onError }: { onClose: () => void; onEr
           <p className="dialog-hint">No active links. Links you create with Share appear here until they expire.</p>
         )}
       </section>
+
+      {auth?.authEnabled && (
+        <section className="settings-section">
+          <h3>Account</h3>
+          <div className="account-row">
+            <span>Signed in as <strong>{auth.username}</strong></span>
+            <button type="button" className="btn btn-ghost btn-small" disabled={leave.isPending} onClick={() => leave.mutate()}>Sign out</button>
+          </div>
+        </section>
+      )}
 
       <div className="dialog-actions">
         <button type="button" className="btn" onClick={onClose}>Done</button>
