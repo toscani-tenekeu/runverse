@@ -45,3 +45,7 @@ export const signIn = (credentials: { username: string; password: string }) =>
   request<unknown>('/auth/login', { method: 'POST', body: JSON.stringify(credentials) });
 export const signOut = () => request<unknown>('/auth/logout', { method: 'POST' });
 export const authQuery = { queryKey: ['auth'], queryFn: getAuth, staleTime: 60_000 };
+
+export interface TerminalResult { stdout: string; stderr: string; code: number | null; signal: string | null; cwd: string; durationMs: number }
+export const runTerminal = (body: { files: CodeFile[]; folders: string[]; cwd: string; command: string }) =>
+  request<TerminalResult>('/terminal', { method: 'POST', body: JSON.stringify(body) });

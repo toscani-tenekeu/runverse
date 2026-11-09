@@ -15,6 +15,7 @@ const MAX_FILES = 2000;
 const PATH = '^([A-Za-z0-9_][A-Za-z0-9_.-]{0,63}/){0,4}[A-Za-z0-9_][A-Za-z0-9_.-]{0,63}$';
 
 // JSON escaping makes a request body bigger than the files it carries, hence the 1.5x.
+const PATH_RE = new RegExp(PATH);
 const app = Fastify({ logger: { level: 'info' }, trustProxy: true, bodyLimit: Math.ceil(MAX_TOTAL_BYTES * 1.5) + 1024 * 1024 });
 
 await app.register(rateLimit, {
@@ -175,6 +176,66 @@ app.post<{ Body: Snippet }>('/api/run', {
   });
   const pick = (s?: typeof result.run) => s && { stdout: tidy(s.stdout), stderr: tidy(s.stderr), code: s.code, signal: s.signal };
   return { run: pick(result.run), compile: pick(result.compile), durationMs: Date.now() - started, version: rt.version };
+});
+
+// A terminal command: run one line of bash in the same sandbox as /run, with a copy of the workspace files.
+// Every command starts fresh, so only the current folder is carried over (the client sends it back).
+const TERM_MARK = '\u001e__RV_CWD__';
+const terminalBody = {
+  type: 'object',
+  required: ['files', 'command'],
+  additionalProperties: false,
+  properties: {
+    files: codeBody.properties.files,
+    folders: codeBody.properties.folders,
+    cwd: { type: 'string', maxLength: 200, default: '', pattern: `^(${PATH.slice(1, -1)})?$` },
+    command: { type: 'string', minLength: 1, maxLength: 4000 },
+  },
+} as const;
+
+app.post<{ Body: { files: Snippet['files']; folders?: string[]; cwd: string; command: string } }>('/api/terminal', {
+  schema: { body: terminalBody },
+  config: { rateLimit: { max: RUNS_PER_MINUTE, timeWindow: '1 minute' } },
+}, async (req, reply) => {
+  const { files, folders = [], cwd, command } = req.body;
+  const error = checkCode({ language: 'bash', files, folders, stdin: '' });
+  if (error) return reply.code(400).send({ message: error });
+  const rt = (await installed()).find(r => r.language === 'bash');
+  if (!rt) return reply.code(400).send({ message: 'The terminal needs Bash, which is not installed on this server. Run ./scripts/languages.sh bash' });
+
+  // Folder names only contain letters, digits, dot, dash, underscore and "/" (checked above), so quoting them is safe.
+  const q = (v: string) => `'${v}'`;
+  const dirs = [...new Set([...folders, ...(cwd ? [cwd] : [])])];
+  const script = [
+    '__rv_base=$PWD',
+    'rm -f -- "$0"', // the runner must not show up in the user's file listing
+    `trap 'case "$PWD" in "$__rv_base") __rv_rel= ;; "$__rv_base"/*) __rv_rel=\${PWD#"$__rv_base"/} ;; *) __rv_rel= ;; esac; printf "\\n${TERM_MARK}%s" "$__rv_rel"' EXIT`,
+    dirs.length ? `mkdir -p ${dirs.map(q).join(' ')}` : ':',
+    cwd ? `cd ${q(cwd)}` : ':',
+    command,
+    '',
+  ].join('\n');
+
+  const started = Date.now();
+  const result = await execute({
+    language: rt.language,
+    version: rt.version,
+    files: [{ name: '__rv_terminal.sh', content: script }, ...files],
+    stdin: '',
+  });
+  const out = result.run.stdout;
+  const at = out.lastIndexOf(TERM_MARK);
+  const nextCwd = at >= 0 ? out.slice(at + TERM_MARK.length).trim() : cwd;
+  const tidy = (v: string) => v.replace(/(?:\.\/)?__rv_terminal\.sh: (?:line \d+: )?/g, '');
+  const stdout = tidy((at >= 0 ? out.slice(0, at) : out).replace(/\n$/, ''));
+  return {
+    stdout,
+    stderr: tidy(result.run.stderr),
+    code: result.run.code,
+    signal: result.run.signal,
+    cwd: PATH_RE.test(nextCwd) || nextCwd === '' ? nextCwd : cwd,
+    durationMs: Date.now() - started,
+  };
 });
 
 app.post<{ Body: Snippet & { expiresIn: string } }>('/api/snippets', {
