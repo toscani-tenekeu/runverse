@@ -112,3 +112,47 @@ export function ShareDialog({ id, expiresAt, onClose }: { id: string; expiresAt:
     </Modal>
   );
 }
+
+// "What do you want to import?": each choice opens the matching file picker.
+export type ImportKind = 'files' | 'folder' | 'workspace';
+
+export function ImportDialog({ onChoose, onClose }: { onChoose: (kind: ImportKind) => void; onClose: () => void }) {
+  const options: { kind: ImportKind; title: string; hint: string }[] = [
+    { kind: 'files', title: 'Files', hint: 'One or more text files, up to 1 MB each. Compressed files are not accepted.' },
+    { kind: 'folder', title: 'Folder', hint: 'A whole folder with its subfolders, up to 100 MB. Compressed and non-text files are skipped.' },
+    { kind: 'workspace', title: 'Workspace', hint: 'A .zip you exported from Runverse. It replaces everything in the editor.' },
+  ];
+  return (
+    <Modal title="What do you want to import?" onClose={onClose}>
+      <div className="choice-list">
+        {options.map(o => (
+          <button key={o.kind} type="button" className="choice" onClick={() => onChoose(o.kind)}>
+            <strong>{o.title}</strong>
+            <span>{o.hint}</span>
+          </button>
+        ))}
+      </div>
+      <div className="dialog-actions">
+        <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+      </div>
+    </Modal>
+  );
+}
+
+export function ImportReportDialog({ report, onClose }: { report: { added: number; replaced: number; skipped: { name: string; reason: string }[] }; onClose: () => void }) {
+  return (
+    <Modal title="Import finished" onClose={onClose}>
+      <p className="dialog-msg">
+        Added {report.added} file{report.added === 1 ? '' : 's'}{report.replaced ? `, replaced ${report.replaced}` : ''}.
+        {' '}{report.skipped.length} skipped:
+      </p>
+      <ul className="skip-list">
+        {report.skipped.slice(0, 12).map(s => <li key={s.name}><code>{s.name}</code><span>{s.reason}</span></li>)}
+      </ul>
+      {report.skipped.length > 12 && <p className="dialog-hint">and {report.skipped.length - 12} more.</p>}
+      <div className="dialog-actions">
+        <button type="button" className="btn" onClick={onClose}>Done</button>
+      </div>
+    </Modal>
+  );
+}

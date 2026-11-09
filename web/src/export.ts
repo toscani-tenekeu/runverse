@@ -1,8 +1,13 @@
 import { strToU8, zipSync, type Zippable } from 'fflate';
 import type { Code } from './api';
 
-// Build the workspace as a .zip: files keep their folders, empty folders are kept,
-// and the stdin box is saved as stdin.txt when it has content.
+// Describes the workspace so Import can restore it exactly: language, which file is the entry
+// (the first one), empty folders and the stdin box.
+export const MANIFEST = 'runverse.json';
+export interface Manifest { runverse: 1; language: string; files: string[]; folders: string[]; stdin: string }
+
+// Build the workspace as a .zip: files keep their folders, empty folders are kept, the stdin box is
+// saved as stdin.txt when it has content, and runverse.json lets "Import workspace" read it back.
 export function workspaceZip(code: Code): Uint8Array {
   const tree: Zippable = {};
   const dir = (path: string) =>
@@ -15,6 +20,8 @@ export function workspaceZip(code: Code): Uint8Array {
     parent[file.name.slice(slash + 1)] = strToU8(file.content);
   }
   if (code.stdin && !('stdin.txt' in tree)) tree['stdin.txt'] = strToU8(code.stdin);
+  const manifest: Manifest = { runverse: 1, language: code.language, files: code.files.map(f => f.name), folders: code.folders ?? [], stdin: code.stdin };
+  tree[MANIFEST] = strToU8(JSON.stringify(manifest, null, 2));
 
   return zipSync(tree, { level: 6 });
 }

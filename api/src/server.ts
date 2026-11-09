@@ -7,11 +7,15 @@ import { deleteSnippet, getSnippet, purgeExpired, saveSnippet, type Snippet } fr
 
 const RUNS_PER_MINUTE = Number(process.env.RUNS_PER_MINUTE ?? 30);
 const SHARES_PER_HOUR = Number(process.env.SHARES_PER_HOUR ?? 20);
-const MAX_TOTAL_BYTES = 200 * 1024;
+// Biggest workspace a run or a share link may carry (all file contents together).
+const MAX_WORKSPACE_MB = Number(process.env.MAX_WORKSPACE_MB ?? 100);
+const MAX_TOTAL_BYTES = MAX_WORKSPACE_MB * 1024 * 1024;
+const MAX_FILES = 2000;
 // Up to 5 levels of folders: "src/lib/util.py". Segments can't start with a dot, so no "..".
 const PATH = '^([A-Za-z0-9_][A-Za-z0-9_.-]{0,63}/){0,4}[A-Za-z0-9_][A-Za-z0-9_.-]{0,63}$';
 
-const app = Fastify({ logger: { level: 'info' }, trustProxy: true, bodyLimit: 512 * 1024 });
+// JSON escaping makes a request body bigger than the files it carries, hence the 1.5x.
+const app = Fastify({ logger: { level: 'info' }, trustProxy: true, bodyLimit: Math.ceil(MAX_TOTAL_BYTES * 1.5) + 1024 * 1024 });
 
 await app.register(rateLimit, {
   global: false,
@@ -66,12 +70,12 @@ const codeBody = {
   properties: {
     language: { type: 'string', maxLength: 32 },
     // Empty folders the user created; folders holding files come from the file paths.
-    folders: { type: 'array', maxItems: 30, default: [], items: { type: 'string', maxLength: 200, pattern: PATH } },
+    folders: { type: 'array', maxItems: MAX_FILES, default: [], items: { type: 'string', maxLength: 200, pattern: PATH } },
     stdin: { type: 'string', maxLength: 64 * 1024, default: '' },
     files: {
       type: 'array',
       minItems: 1,
-      maxItems: 20,
+      maxItems: MAX_FILES,
       items: {
         type: 'object',
         required: ['name', 'content'],
@@ -102,7 +106,7 @@ function checkCode(body: Snippet): string | null {
   const clash = body.files.find(f => names.has(f.name.slice(0, f.name.lastIndexOf('/'))));
   if (clash) return `${clash.name} is inside a folder that has the same name as a file.`;
   const total = body.files.reduce((n, f) => n + Buffer.byteLength(f.content), 0);
-  if (total > MAX_TOTAL_BYTES) return 'Your files are too large (200 KB max in total).';
+  if (total > MAX_TOTAL_BYTES) return `Your files are too large (${MAX_WORKSPACE_MB} MB max in total).`;
   return null;
 }
 
