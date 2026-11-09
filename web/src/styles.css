@@ -41,16 +41,16 @@ button,select,textarea,input{font:inherit;color:inherit}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
 /* Brand */
-.logo{width:28px;height:28px;flex-shrink:0;overflow:visible}
+.logo{width:24px;height:24px;flex-shrink:0;overflow:visible}
 .logo .arc{fill:none;stroke:var(--ink);stroke-width:4.2;stroke-linecap:round}
 .logo .play{fill:var(--ink);stroke:var(--ink);stroke-width:1.6;stroke-linejoin:round}
 .logo .planet{fill:var(--accent)}
-.brand{display:flex;align-items:center;gap:9px;text-decoration:none;color:var(--ink);font-weight:700;font-size:1.25rem;letter-spacing:-.03em}
+.brand{display:flex;align-items:center;gap:9px;text-decoration:none;color:var(--ink);font-weight:700;font-size:1.1rem;letter-spacing:-.03em}
 
 /* Buttons */
 .btn{
-  display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border-radius:10px;border:0;cursor:pointer;
-  background:var(--accent);color:var(--on-accent);font-weight:600;font-size:.95rem;white-space:nowrap;
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;height:32px;padding:0 14px;border-radius:8px;border:0;cursor:pointer;
+  background:var(--accent);color:var(--on-accent);font-weight:600;font-size:.9rem;white-space:nowrap;
   transition:filter .2s,opacity .2s;
 }
 .btn:hover{filter:brightness(1.06)}
@@ -60,21 +60,21 @@ button,select,textarea,input{font:inherit;color:inherit}
 .btn-ghost:hover{box-shadow:inset 0 0 0 1.5px var(--ink);filter:none}
 .btn-danger{background:var(--bad);color:#fff}
 .icon-btn{
-  width:40px;height:40px;border-radius:10px;border:0;cursor:pointer;flex-shrink:0;display:grid;place-items:center;
+  width:32px;height:32px;border-radius:8px;border:0;cursor:pointer;flex-shrink:0;display:grid;place-items:center;
   background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--line);
 }
 .icon-btn:hover{box-shadow:inset 0 0 0 1.5px var(--ink)}
-.icon-btn svg{width:19px;height:19px}
+.icon-btn svg{width:17px;height:17px}
 .linkish{background:none;border:0;padding:0;margin-left:8px;cursor:pointer;color:var(--accent-text);font-size:.75rem;font-weight:600;text-transform:none;letter-spacing:0}
 
 /* Top bar */
 .app{display:flex;flex-direction:column;height:100%}
-.bar{display:flex;align-items:center;gap:16px;padding:10px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.bar{display:flex;align-items:center;gap:10px;padding:6px 10px;border-bottom:1px solid var(--line);flex-wrap:wrap}
 .picker select{
-  height:40px;padding:0 36px 0 12px;border-radius:10px;border:0;cursor:pointer;background:var(--surface);
+  height:32px;padding:0 32px 0 10px;border-radius:8px;border:0;cursor:pointer;background:var(--surface);
   box-shadow:inset 0 0 0 1.5px var(--line);font-weight:600;appearance:none;
   background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
-  background-position:calc(100% - 18px) 17px,calc(100% - 13px) 17px;background-size:5px 5px;background-repeat:no-repeat;
+  background-position:calc(100% - 16px) 13px,calc(100% - 11px) 13px;background-size:5px 5px;background-repeat:no-repeat;
 }
 .expires{font-size:.85rem;color:var(--muted)}
 .bar-actions{display:flex;align-items:center;gap:8px;margin-left:auto}
@@ -92,18 +92,15 @@ button,select,textarea,input{font:inherit;color:inherit}
 
 /* Panes: explorer | editor | side, each resizable */
 .panes{
-  flex:1;min-height:0;display:grid;padding:12px;
-  grid-template-columns:var(--explorer-w) 12px minmax(0,1fr) 12px var(--side-w);
+  flex:1;min-height:0;display:grid;padding:6px 8px;
+  grid-template-columns:var(--explorer-w) var(--rz-a,8px) minmax(0,1fr) var(--rz-b,8px) var(--side-w);
 }
-.pane{min-height:0;display:flex;flex-direction:column;border-radius:14px;overflow:hidden}
+.pane{min-height:0;min-width:0;display:flex;flex-direction:column;border-radius:10px;overflow:hidden}
 .editor-pane{background:var(--ed-bg);box-shadow:0 0 0 1px var(--ed-line)}
-.editor-head{display:flex;align-items:center;gap:10px;padding:9px 14px;background:var(--ed-bar);border-bottom:1px solid var(--ed-line);color:var(--ed-ink);font:500 .85rem var(--mono)}
-.editor-head .path{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.badge{padding:1px 8px;border-radius:99px;background:rgba(242,182,48,.18);color:var(--accent-text);font:600 .7rem var(--font);text-transform:uppercase;letter-spacing:.05em}
 .code{flex:1;min-height:0}
 .code .cm-editor{height:100%}
 
-.resizer{position:relative;z-index:1;touch-action:none}
+.resizer{position:relative;z-index:1;touch-action:none;min-width:0;overflow:hidden}
 .resizer::after{content:"";position:absolute;border-radius:2px;background:var(--line);transition:background .2s}
 .resizer:hover::after,.resizer:focus-visible::after{background:var(--accent)}
 .resizer-x{cursor:col-resize}
@@ -113,7 +110,7 @@ button,select,textarea,input{font:inherit;color:inherit}
 .mobile-only{display:none}
 
 /* File explorer */
-.explorer{min-height:0;display:flex;flex-direction:column;border-radius:14px;background:var(--surface);box-shadow:0 0 0 1px var(--line);overflow:hidden}
+.explorer{min-height:0;min-width:0;display:flex;flex-direction:column;border-radius:10px;background:var(--surface);box-shadow:0 0 0 1px var(--line);overflow:hidden}
 .explorer-head{display:flex;align-items:center;gap:2px;padding:6px 6px 6px 14px;border-bottom:1px solid var(--line)}
 .explorer-head span{flex:1;font-size:.8rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
 .explorer-head button,.node-actions button{display:grid;place-items:center;width:28px;height:28px;border:0;border-radius:7px;background:none;cursor:pointer;color:var(--muted)}
@@ -147,11 +144,11 @@ button,select,textarea,input{font:inherit;color:inherit}
 @media (hover:none){.node.on .node-actions{display:flex}}
 
 /* Side: stdin + output, or preview + console */
-.side{min-height:0;display:flex;flex-direction:column}
-.block{display:flex;flex-direction:column;min-height:0;border-radius:14px;background:var(--surface);box-shadow:0 0 0 1px var(--line);overflow:hidden}
+.side{min-height:0;min-width:0;overflow:hidden;display:flex;flex-direction:column}
+.block{display:flex;flex-direction:column;min-height:0;border-radius:10px;background:var(--surface);box-shadow:0 0 0 1px var(--line);overflow:hidden}
 .stdin,.console{flex-shrink:0}
 .output,.preview{flex:1}
-.label{display:flex;align-items:center;padding:10px 14px;font-size:.8rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--line)}
+.label{display:flex;align-items:center;padding:7px 12px;font-size:.8rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--line)}
 .label small{text-transform:none;letter-spacing:0;font-weight:500;margin-left:4px}
 .stdin textarea{flex:1;resize:none;border:0;background:transparent;padding:12px 14px;font:.9rem/1.6 var(--mono)}
 .stdin textarea:focus{outline:none}
@@ -165,7 +162,7 @@ button,select,textarea,input{font:inherit;color:inherit}
 .preview-frame{flex:1;width:100%;border:0;background:#fff}
 
 /* Terminal */
-.terminal{position:relative;display:flex;flex-direction:column;margin:0 12px 8px;border-radius:14px;overflow:hidden;background:var(--ed-bg);color:var(--ed-ink);box-shadow:0 0 0 1px var(--ed-line);flex-shrink:0}
+.terminal{position:relative;display:flex;flex-direction:column;margin:0 8px 6px;border-radius:10px;overflow:hidden;background:var(--ed-bg);color:var(--ed-ink);box-shadow:0 0 0 1px var(--ed-line);flex-shrink:0}
 .terminal-expanded{height:min(62vh,680px)}
 .terminal .resizer-y{position:absolute;inset:-6px 0 auto;z-index:2;height:12px}
 .terminal-head{display:flex;align-items:center;gap:4px;padding:4px 6px 4px 8px;background:var(--ed-bar);border-bottom:1px solid var(--ed-line)}
@@ -185,6 +182,60 @@ button,select,textarea,input{font:inherit;color:inherit}
 .terminal-input span{white-space:nowrap;opacity:.7}
 .terminal-input input{flex:1;min-width:0;padding:0;border:0;background:none;color:inherit;font:inherit;outline:none}
 .terminal-input input::placeholder{opacity:.4}
+
+/* Editor tabs */
+.tabs-bar{display:flex;align-items:stretch;background:var(--ed-bar);border-bottom:1px solid var(--ed-line);min-height:34px}
+.tabs{flex:1;min-width:0;display:flex;align-items:stretch;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{position:relative;display:flex;align-items:center;flex-shrink:0;border-right:1px solid var(--ed-line);color:var(--ed-muted)}
+.tab.on{background:var(--ed-bg);color:var(--ed-ink)}
+.tab.on::before{content:"";position:absolute;inset:0 0 auto;height:2px;background:var(--accent)}
+.tab-main{display:flex;align-items:center;gap:6px;height:100%;padding:0 8px 0 12px;border:0;background:none;color:inherit;cursor:pointer;font:500 .82rem var(--mono);white-space:nowrap}
+.tab:not(.on):hover{background:rgba(127,127,127,.1);color:var(--ed-ink)}
+.tab-entry{color:var(--accent);font-size:.6rem}
+.tab-dir{opacity:.55;font-size:.72rem}
+.tab-close,.tab-new{display:grid;place-items:center;width:22px;height:22px;margin-right:6px;border:0;border-radius:5px;background:none;color:inherit;cursor:pointer;opacity:0}
+.tab-close svg,.tab-new svg{width:12px;height:12px}
+.tab.on .tab-close,.tab:hover .tab-close,.tab-close:focus-visible{opacity:.7}
+.tab-close:hover{opacity:1;background:rgba(127,127,127,.22)}
+.tab-new{opacity:.65;margin:auto 4px;width:26px;height:26px;flex-shrink:0;color:var(--ed-ink)}
+.tab-new svg{width:14px;height:14px}
+.tab-new:hover{opacity:1;background:rgba(127,127,127,.2)}
+@media (hover:none){.tab-close{opacity:.7}}
+.label-btn{width:100%;border:0;background:none;cursor:pointer;text-align:left;gap:6px}
+.label-btn:hover{color:var(--ink)}
+.label-chev{width:13px;height:13px;transition:transform .15s}
+.label-chev.open{transform:rotate(90deg)}
+.stdin.is-closed .label{border-bottom:0}
+.stdin.is-closed{margin-bottom:6px}
+
+/* Quick open (Ctrl+P) */
+.dialog-compact{width:min(520px,calc(100% - 32px));margin-block-start:12vh}
+.dialog-compact .dialog-body{padding:10px}
+.quick-input{width:100%;height:42px;padding:0 12px;border:0;border-radius:8px;background:var(--bg);box-shadow:inset 0 0 0 1.5px var(--line);font:.95rem var(--mono)}
+.quick-input:focus{outline:none;box-shadow:inset 0 0 0 2px var(--accent)}
+.quick-list{list-style:none;margin:8px 0 0;padding:0;max-height:320px;overflow:auto}
+.quick-list li{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:7px 10px;border-radius:7px;cursor:pointer;font:.88rem var(--mono)}
+.quick-list li.on{background:rgba(242,182,48,.18)}
+.quick-list small{color:var(--muted);font-size:.75rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.quick-empty{color:var(--muted);cursor:default !important}
+
+/* Settings: editor options and shortcuts */
+.pref-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0}
+.pref-row input[type="checkbox"]{width:18px;height:18px;accent-color:var(--accent)}
+.stepper{display:inline-flex;align-items:center;gap:2px;border-radius:8px;box-shadow:inset 0 0 0 1.5px var(--line)}
+.stepper button{width:30px;height:30px;border:0;background:none;cursor:pointer;font-size:1.1rem;color:var(--ink);border-radius:7px}
+.stepper button:hover:not(:disabled){background:var(--hover)}
+.stepper button:disabled{opacity:.35;cursor:default}
+.stepper output{min-width:52px;text-align:center;font:600 .85rem var(--mono)}
+.shortcuts{margin:0;display:grid;gap:4px}
+.shortcuts div{display:flex;justify-content:space-between;gap:12px;font-size:.88rem}
+.shortcuts dt{font:600 .8rem var(--mono);color:var(--ink)}
+.shortcuts dd{margin:0;color:var(--muted)}
+
+/* Focus mode and hidden panels keep their place in the grid (so nothing jumps), just empty and unreachable */
+.app.is-focus .bar,.app.is-focus .terminal{display:none}
+.app.is-focus .explorer,.app.no-side .side{visibility:hidden}
 
 /* Dialog */
 .dialog{
@@ -221,10 +272,15 @@ button,select,textarea,input{font:inherit;color:inherit}
 .link-info span{font-size:.8rem;color:var(--muted)}
 .copy-row{display:flex;align-items:center;gap:8px}
 .copy-row input{margin-top:0;flex:1}
-.statusbar{display:flex;align-items:center;gap:8px;padding:6px 12px;border-top:1px solid var(--line)}
-.statusbar-btn{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 10px;border:0;border-radius:8px;background:none;color:var(--muted);cursor:pointer;font-weight:600;font-size:.85rem}
+.statusbar{display:flex;align-items:center;gap:2px;height:28px;padding:0 6px;border-top:1px solid var(--line);flex-shrink:0}
+.statusbar-btn{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border:0;border-radius:6px;background:none;color:var(--muted);cursor:pointer;font-weight:600;font-size:.75rem;white-space:nowrap}
 .statusbar-btn:hover,.statusbar-btn:focus-visible{background:var(--hover);color:var(--ink)}
-.statusbar-btn svg{width:17px;height:17px}
+.statusbar-btn[aria-pressed="true"]{color:var(--ink);background:var(--hover)}
+.statusbar-btn svg{width:15px;height:15px}
+.statusbar-run{background:var(--accent);color:var(--on-accent)}
+.statusbar-run:hover{background:var(--accent);color:var(--on-accent);filter:brightness(1.06)}
+.statusbar-spacer{flex:1}
+.statusbar-info{padding:0 8px;color:var(--muted);font:500 .72rem var(--mono);white-space:nowrap}
 
 .toast{
   position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:30;max-width:calc(100% - 32px);
@@ -242,7 +298,6 @@ button,select,textarea,input{font:inherit;color:inherit}
 .skip-list li{display:flex;justify-content:space-between;gap:12px;font-size:.85rem}
 .skip-list code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:.82rem var(--mono)}
 .skip-list span{color:var(--muted);text-align:right}
-.toast{
 .login{max-width:440px}
 .login form{display:grid;gap:14px;margin-top:20px}
 .login code{font:.85em var(--mono)}
@@ -270,7 +325,8 @@ button,select,textarea,input{font:inherit;color:inherit}
   .panes{grid-template-columns:1fr;gap:0}
   .desktop-only{display:none}
   .mobile-only{display:block}
-  .explorer{max-height:220px;margin-bottom:12px}
+  .explorer{max-height:220px;margin-bottom:8px}
+  .app.no-side .side,.app.is-focus .explorer{display:none}
   .explorer.is-collapsed{max-height:none}
   .explorer-rail{flex-direction:row;justify-content:flex-start;gap:10px;padding:10px 14px}
   .explorer-rail span{writing-mode:horizontal-tb}
@@ -280,7 +336,12 @@ button,select,textarea,input{font:inherit;color:inherit}
   .preview{height:420px;flex:none}
 }
 @media (max-width:640px){
-  .terminal{margin:0 10px 8px}
+  .terminal{margin:0 8px 6px}
+  .sb-label,.sb-lang{display:none}
+  .statusbar-btn{height:30px;padding:0 10px}
+  .statusbar{height:34px}
+  .icon-btn{width:36px;height:36px}
+  .btn{height:36px}
   .bar{gap:10px;padding:10px 12px}
   .brand span{display:none}
   .picker{flex:1}

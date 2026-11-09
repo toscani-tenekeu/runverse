@@ -1,4 +1,4 @@
-import { StrictMode, useEffect } from 'react';
+import { StrictMode, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -67,7 +67,10 @@ function AuthGate() {
     addEventListener('rv-unauthorized', again);
     return () => removeEventListener('rv-unauthorized', again);
   }, [qc]);
-  if (isPending) return <Message title="Loading…" />;
+  // Only the first check shows "Loading…". A later refetch (even one that fails) must not throw the editor away.
+  const settled = useRef(false);
+  if (!isPending) settled.current = true;
+  if (isPending && !settled.current) return <Message title="Loading…" />;
   // If the auth check itself fails, let the pages show their own "can't reach its server" message.
   if (data?.authEnabled && !data.authenticated) return <Login />;
   return <Outlet />;

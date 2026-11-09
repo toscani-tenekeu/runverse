@@ -8,6 +8,9 @@ import { useDialog } from './Dialog';
 import { Explorer, allFolders, type FileTab } from './Explorer';
 import { Resizer } from './Resizer';
 import { Terminal, type TerminalMode } from './Terminal';
+import { EditorTabs } from './EditorTabs';
+import { QuickOpen } from './QuickOpen';
+import { useEditorPrefs } from './prefs';
 import { load, save } from './storage';
 import { ImportDialog, ImportReportDialog, SettingsDialog, ShareDialog, formatDate, type ImportKind } from './Settings';
 import { MAX_FILES as IMPORT_MAX_FILES, MAX_FOLDER_BYTES, formatBytes, readPicked, readWorkspaceZip, setPendingWorkspace, type Skipped } from './import';
@@ -32,10 +35,11 @@ const EXPIRIES: { id: Expiry; label: string }[] = [
 interface Layout { explorer: number; side: number; top: number; editor: number }
 const LAYOUT_KEY = 'rv-layout';
 const FILES_OPEN_KEY = 'rv-files-open';
+const SIDE_OPEN_KEY = 'rv-side-open';
 const TERMINAL_KEY = 'rv-terminal';
 const TERMINAL_HEIGHT_KEY = 'rv-terminal-height';
 const RAIL_WIDTH = 44;
-const DEFAULT_LAYOUT: Layout = { explorer: 220, side: 420, top: 170, editor: 440 };
+const DEFAULT_LAYOUT: Layout = { explorer: 210, side: 400, top: 130, editor: 440 };
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
 const WEB_MODES: Record<string, string> = { html: 'html', htm: 'html', css: 'css', js: 'javascript', mjs: 'javascript' };
@@ -76,11 +80,35 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
   const [termHeight, setTermHeight] = useState(() => clamp(load<number>(TERMINAL_HEIGHT_KEY) ?? 220, 120, 700));
   const changeTermMode = (m: TerminalMode) => { setTermMode(m); save(TERMINAL_KEY, { mode: m }); };
   const resizeTerm = (d: number) => setTermHeight(h => { const next = clamp(h + d, 120, 700); save(TERMINAL_HEIGHT_KEY, next); return next; });
-  const [filesOpen, setFilesOpen] = useState(() => load<boolean>(FILES_OPEN_KEY) !== false);
+  // A one-file program does not need the file list, so it starts out of the way (until the person chooses otherwise).
+  const [filesOpen, setFilesOpen] = useState(() => load<boolean>(FILES_OPEN_KEY) ?? initial.files.length > 1);
   const toggleFiles = () => setFilesOpen(o => { save(FILES_OPEN_KEY, !o); return !o; });
+  const [sideOpen, setSideOpen] = useState(() => load<boolean>(SIDE_OPEN_KEY) !== false);
+  const toggleSide = () => setSideOpen(o => { save(SIDE_OPEN_KEY, !o); return !o; });
+  const [stdinOpen, setStdinOpen] = useState(() => initial.stdin.length > 0);
+  const [focus, setFocus] = useState(false);
+  const [quickOpen, setQuickOpen] = useState(false);
+  const [cursor, setCursor] = useState({ line: 1, col: 1 });
+  const prefs = useEditorPrefs();
   const [shared, setShared] = useState<{ id: string; expiresAt: number } | null>(null);
   const [layout, setLayout] = useState<Layout>(() => ({ ...DEFAULT_LAYOUT, ...load<Partial<Layout>>(LAYOUT_KEY) }));
   const current = files.find(f => f.key === active) ?? files[0];
+
+  // Tabs: the files that are open. Whatever becomes the active file gets a tab; deleted files lose theirs.
+  const [openKeys, setOpenKeys] = useState<string[]>(() => [files[0].key]);
+  useEffect(() => {
+    setOpenKeys(keys => {
+      const alive = keys.filter(k => files.some(f => f.key === k));
+      return alive.includes(current.key) ? (alive.length === keys.length ? keys : alive) : [...alive, current.key];
+    });
+  }, [files, current.key]);
+  const closeTab = (key: string) => {
+    if (openKeys.length < 2) return;
+    const at = openKeys.indexOf(key);
+    const rest = openKeys.filter(k => k !== key);
+    if (key === current.key) setActive(rest[Math.max(0, at - 1)]);
+    setOpenKeys(rest);
+  };
 
   const code = useMemo<Code>(() => ({
     language: lang.id,
@@ -117,6 +145,9 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
   }, [isWeb, code.files]);
 
   const doRun = () => {
+    // The result appears in the output panel, so make sure it is visible.
+    setSideOpen(true);
+    save(SIDE_OPEN_KEY, true);
     if (isWeb) { setLogs([]); setWebDoc(buildDocument(code.files)); setWebVersion(v => v + 1); return; }
     if (!run.isPending) run.mutate(code);
   };
@@ -325,18 +356,38 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
     }
   };
 
+  // ---- Keyboard shortcuts ----
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;
+      if (document.querySelector('dialog[open]')) return; // a dialog has the keyboard
+      const act = (fn: () => void) => { e.preventDefault(); fn(); };
+      switch (e.key) {
+        case 'p': return act(() => setQuickOpen(true));
+        case 'b': return act(toggleFiles);
+        case '\\': return act(toggleSide);
+        case '.': return act(() => setFocus(f => !f));
+        case ',': return act(() => setSettingsOpen(true));
+      }
+    };
+    addEventListener('keydown', onKey, true);
+    return () => removeEventListener('keydown', onKey, true);
+  }, []);
+
   // ---- Layout ----
   const resize = (key: keyof Layout, min: number, max: number) => (delta: number) =>
     setLayout(l => ({ ...l, [key]: clamp(l[key] + delta, min, max) }));
   const style = {
-    '--explorer-w': `${filesOpen ? layout.explorer : RAIL_WIDTH}px`,
-    '--side-w': `${layout.side}px`,
+    '--explorer-w': focus ? '0px' : `${filesOpen ? layout.explorer : RAIL_WIDTH}px`,
+    '--rz-a': focus ? '0px' : '8px',
+    '--side-w': sideOpen ? `${layout.side}px` : '0px',
+    '--rz-b': sideOpen ? '8px' : '0px',
     '--top-h': `${layout.top}px`,
     '--editor-h': `${layout.editor}px`,
   } as CSSProperties;
 
   return (
-    <div className="app">
+    <div className={`app${focus ? ' is-focus' : ''}${sideOpen ? '' : ' no-side'}`}>
       <header className="bar">
         <a className="brand" href="/" aria-label="Runverse home">
           <Logo />
@@ -408,16 +459,19 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
           : <div className="desktop-only" aria-hidden="true" />}
 
         <section className="pane editor-pane" aria-label="Code">
-          <div className="editor-head">
-            <span className="path">{current.name}</span>
-            {current === files[0] && <span className="badge">entry</span>}
-          </div>
-          <CodeEditor fileKey={current.key} value={current.content} mode={modeFor(lang, current.name)} onChange={updateContent} onRun={doRun} />
+          <EditorTabs
+            files={files} openKeys={openKeys} activeKey={current.key}
+            onSelect={setActive} onClose={closeTab} onNew={() => newFile('')}
+          />
+          <CodeEditor
+            fileKey={current.key} value={current.content} mode={modeFor(lang, current.name)} onChange={updateContent} onRun={doRun}
+            fontSize={prefs.fontSize} wrap={prefs.wrap} onCursor={setCursor}
+          />
         </section>
         <Resizer axis="x" className="desktop-only" label="Resize output panel" onResize={d => resize('side', 260, innerWidth * 0.65)(-d)} />
         <Resizer axis="y" className="mobile-only" label="Resize editor" onResize={resize('editor', 200, 1400)} />
 
-        <section className="side" aria-label={isWeb ? 'Preview and console' : 'Input and output'}>
+        <section className="side" aria-hidden={!sideOpen} aria-label={isWeb ? 'Preview and console' : 'Input and output'}>
           {isWeb ? (
             <>
               <div className="block preview">
@@ -435,11 +489,14 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
             </>
           ) : (
             <>
-              <label className="block stdin" style={{ height: 'var(--top-h)' }}>
-                <span className="label">Input <small>(stdin)</small></span>
-                <textarea value={stdin} onChange={e => setStdin(e.target.value)} spellCheck={false} placeholder="Text your program reads from standard input" />
-              </label>
-              <Resizer axis="y" label="Resize input box" onResize={resize('top', 60, 900)} />
+              <div className={`block stdin${stdinOpen ? '' : ' is-closed'}`} style={stdinOpen ? { height: 'var(--top-h)' } : undefined}>
+                <button type="button" className="label label-btn" aria-expanded={stdinOpen} onClick={() => setStdinOpen(o => !o)}>
+                  <svg className={`label-chev${stdinOpen ? ' open' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+                  Input <small>(stdin){!stdinOpen && stdin ? ' · has text' : ''}</small>
+                </button>
+                {stdinOpen && <textarea autoFocus value={stdin} onChange={e => setStdin(e.target.value)} spellCheck={false} placeholder="Text your program reads from standard input" />}
+              </div>
+              {stdinOpen && <Resizer axis="y" label="Resize input box" onResize={resize('top', 60, 900)} />}
               <div className="block output" aria-live="polite">
                 <span className="label">Output</span>
                 <Output pending={run.isPending} error={run.error?.message} result={run.data} />
@@ -455,19 +512,36 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
       />
 
       <footer className="statusbar">
-        <button className="statusbar-btn" type="button" onClick={() => changeTermMode(termMode === 'collapsed' ? 'normal' : 'collapsed')} aria-pressed={termMode !== 'collapsed'} aria-label="Terminal" title="Terminal (Ctrl+`)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 8 4 4-4 4M12 17h7" /></svg>
-          Terminal
+        <button className="statusbar-btn" type="button" onClick={toggleFiles} aria-pressed={filesOpen && !focus} aria-label="Files" title={`Files (${modKey}+B)`}>
+          <Ico d="M4 5h16v14H4zM9 5v14" /><span className="sb-label">Files</span>
         </button>
-        <button className="statusbar-btn" type="button" onClick={() => setSettingsOpen(true)} aria-label="Settings">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5h0a1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
-          Settings
+        <button className="statusbar-btn" type="button" onClick={toggleSide} aria-pressed={sideOpen} aria-label="Output" title={`Output (${modKey}+\\)`}>
+          <Ico d="M4 5h16v14H4zM15 5v14" /><span className="sb-label">Output</span>
+        </button>
+        <button className="statusbar-btn" type="button" onClick={() => changeTermMode(termMode === 'collapsed' ? 'normal' : 'collapsed')} aria-pressed={termMode !== 'collapsed'} aria-label="Terminal" title="Terminal (Ctrl+`)">
+          <Ico d="m5 8 4 4-4 4M12 17h7" /><span className="sb-label">Terminal</span>
+        </button>
+        <span className="statusbar-spacer" />
+        {focus && (
+          <button className="statusbar-btn statusbar-run" type="button" onClick={doRun} disabled={run.isPending} aria-label="Run" title="Run (Ctrl+Enter)">
+            <Ico d="M7 5.5v13l11-6.5z" /><span className="sb-label">{run.isPending ? 'Running…' : 'Run'}</span>
+          </button>
+        )}
+        <span className="statusbar-info" aria-label="Cursor position">Ln {cursor.line}, Col {cursor.col}</span>
+        <span className="statusbar-info sb-lang">{lang.name}{lang.version ? ` ${lang.version}` : ''}</span>
+        <button className="statusbar-btn" type="button" onClick={() => setFocus(f => !f)} aria-pressed={focus} aria-label={focus ? 'Leave focus mode' : 'Focus mode'} title={`${focus ? 'Leave focus mode' : 'Focus mode: just the code'} (${modKey}+.)`}>
+          <Ico d={focus ? 'M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5' : 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5'} />
+        </button>
+        <button className="statusbar-btn" type="button" onClick={() => setSettingsOpen(true)} aria-label="Settings" title={`Settings (${modKey}+,)`}>
+          <Ico d="M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5h0a1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
+          <span className="sb-label">Settings</span>
         </button>
       </footer>
 
       <input ref={fileInput} type="file" multiple hidden onChange={e => { addPicked(e.target.files, 'files'); e.target.value = ''; }} />
       <input ref={folderInput} type="file" hidden {...{ webkitdirectory: '', directory: '' }} onChange={e => { addPicked(e.target.files, 'folder'); e.target.value = ''; }} />
       <input ref={zipInput} type="file" accept=".zip,application/zip" hidden onChange={e => { importWorkspace(e.target.files); e.target.value = ''; }} />
+      {quickOpen && <QuickOpen files={files} activeKey={current.key} onPick={setActive} onClose={() => setQuickOpen(false)} />}
       {importOpen && <ImportDialog onChoose={chooseImport} onClose={() => setImportOpen(false)} />}
       {report && <ImportReportDialog report={report} onClose={() => setReport(null)} />}
       {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} onError={flash} />}
@@ -505,6 +579,12 @@ function Output({ pending, error, result }: { pending: boolean; error?: string; 
     </>
   );
 }
+
+const modKey = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl';
+
+const Ico = ({ d }: { d: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={d} /></svg>
+);
 
 export function Logo() {
   return (

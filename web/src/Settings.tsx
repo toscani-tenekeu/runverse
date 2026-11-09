@@ -3,23 +3,24 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { authQuery, deleteSharedLink, signOut } from './api';
 import { forgetLink, linkUrl, useSharedLinks } from './links';
 import { useTheme } from './theme';
+import { FONT_MAX, FONT_MIN, setPrefs, useEditorPrefs } from './prefs';
 
 export const formatDate = (ms: number) => new Date(ms).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
 // Shared by the settings and share dialogs: a native <dialog> opened as a modal.
-export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+export function Modal({ title, onClose, children, compact }: { title: string; onClose: () => void; children: React.ReactNode; compact?: boolean }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => { ref.current?.showModal(); }, []);
   return (
     <dialog
       ref={ref}
-      className="dialog"
+      className={`dialog${compact ? ' dialog-compact' : ''}`}
       onCancel={e => { e.preventDefault(); onClose(); }}
       onClick={e => { if (e.target === ref.current) onClose(); }}
       aria-labelledby="modal-title"
     >
       <div className="dialog-body">
-        <h2 id="modal-title">{title}</h2>
+        <h2 id="modal-title" className={compact ? 'sr-only' : undefined}>{title}</h2>
         {children}
       </div>
     </dialog>
@@ -37,6 +38,7 @@ export function CopyButton({ text, label = 'Copy' }: { text: string; label?: str
 export function SettingsDialog({ onClose, onError }: { onClose: () => void; onError: (message: string) => void }) {
   const { dark, setTheme } = useTheme();
   const links = useSharedLinks();
+  const prefs = useEditorPrefs();
   const qc = useQueryClient();
   const auth = useQuery(authQuery).data;
   const leave = useMutation({ mutationFn: signOut, onSuccess: () => qc.invalidateQueries({ queryKey: ['auth'] }) });
@@ -55,6 +57,22 @@ export function SettingsDialog({ onClose, onError }: { onClose: () => void; onEr
           <button type="button" role="radio" aria-checked={!dark} onClick={() => setTheme('light')}>Light</button>
           <button type="button" role="radio" aria-checked={dark} onClick={() => setTheme('dark')}>Dark</button>
         </div>
+      </section>
+
+      <section className="settings-section">
+        <h3>Editor</h3>
+        <div className="pref-row">
+          <span>Font size</span>
+          <div className="stepper">
+            <button type="button" aria-label="Smaller text" disabled={prefs.fontSize <= FONT_MIN} onClick={() => setPrefs({ fontSize: prefs.fontSize - 1 })}>−</button>
+            <output aria-live="polite">{prefs.fontSize} px</output>
+            <button type="button" aria-label="Larger text" disabled={prefs.fontSize >= FONT_MAX} onClick={() => setPrefs({ fontSize: prefs.fontSize + 1 })}>+</button>
+          </div>
+        </div>
+        <label className="pref-row">
+          <span>Wrap long lines</span>
+          <input type="checkbox" role="switch" checked={prefs.wrap} onChange={e => setPrefs({ wrap: e.target.checked })} />
+        </label>
       </section>
 
       <section className="settings-section">
@@ -90,12 +108,30 @@ export function SettingsDialog({ onClose, onError }: { onClose: () => void; onEr
         </section>
       )}
 
+      <section className="settings-section">
+        <h3>Keyboard shortcuts</h3>
+        <dl className="shortcuts">
+          {SHORTCUTS.map(([keys, what]) => (<div key={what}><dt>{keys}</dt><dd>{what}</dd></div>))}
+        </dl>
+      </section>
+
       <div className="dialog-actions">
         <button type="button" className="btn" onClick={onClose}>Done</button>
       </div>
     </Modal>
   );
 }
+
+const mod = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl';
+const SHORTCUTS: [string, string][] = [
+  [`${mod}+Enter`, 'Run'],
+  [`${mod}+P`, 'Go to file'],
+  [`${mod}+B`, 'Show or hide the file list'],
+  [`${mod}+\\`, 'Show or hide the output'],
+  ['Ctrl+`', 'Show or hide the terminal'],
+  [`${mod}+.`, 'Focus mode (code only)'],
+  [`${mod}+,`, 'Settings'],
+];
 
 export function ShareDialog({ id, expiresAt, onClose }: { id: string; expiresAt: number; onClose: () => void }) {
   const url = linkUrl(id);

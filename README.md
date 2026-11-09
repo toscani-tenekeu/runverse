@@ -29,6 +29,8 @@ A free, open-source online compiler you can host yourself.<br>
 - **Files and folders** per project (`lib/utils.py`), with standard input and separate stdout, stderr and compiler output
 - **Import and export**: import files (1 MB each at most), a folder (100 MB at most) or a whole workspace. Export gives a `.zip` that Import can read back. Zip, gzip and other compressed files are refused, and so are non-text files
 - **Terminal**: type shell commands against your files. The panel can be collapsed, expanded or resized, and it needs Bash installed
+- **Room to code**: open files show as tabs, the Files list and the output can be hidden, and focus mode hides everything but the editor. The status bar shows the cursor position and holds the panel toggles. Font size and line wrapping are in Settings
+- **Keyboard shortcuts**: `Ctrl+Enter` run, `Ctrl+P` go to file, `Ctrl+B` files, `Ctrl+\` output, `Ctrl+.` focus mode, `` Ctrl+` `` terminal, `Ctrl+,` settings (`Cmd` on a Mac)
 - **Share links** that expire after 1 hour, 1, 7, 15, 20 or 30 days, your choice
 - **Resizable panes**, and light and dark editor themes
 - **Safe by default**: every run is sandboxed by [Piston](https://github.com/engineer-man/piston) with no network, plus time, memory and process limits and per-IP rate limits
