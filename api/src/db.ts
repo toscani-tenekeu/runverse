@@ -1,3 +1,4 @@
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -29,20 +30,25 @@ if (!columns.includes('expires_at')) {
   db.exec('ALTER TABLE snippets ADD COLUMN expires_at INTEGER');
   db.prepare('UPDATE snippets SET expires_at = ? WHERE expires_at IS NULL').run(Date.now() + 30 * 86_400_000);
 }
+// Links made before deletion existed have no token, so only they can't be deleted early.
+if (!columns.includes('delete_token')) db.exec('ALTER TABLE snippets ADD COLUMN delete_token TEXT');
 db.exec('CREATE INDEX IF NOT EXISTS snippets_expires_at ON snippets (expires_at)');
 
-const insert = db.prepare('INSERT INTO snippets (id, language, files, folders, stdin, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
+const insert = db.prepare('INSERT INTO snippets (id, language, files, folders, stdin, created_at, expires_at, delete_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+const selectToken = db.prepare('SELECT delete_token FROM snippets WHERE id = ?');
+const remove = db.prepare('DELETE FROM snippets WHERE id = ?');
 const select = db.prepare('SELECT language, files, folders, stdin, expires_at FROM snippets WHERE id = ? AND expires_at > ?');
 const purge = db.prepare('DELETE FROM snippets WHERE expires_at <= ?');
 
 // No look-alike characters, so links are easy to read out loud.
 const newId = customAlphabet('23456789abcdefghjkmnpqrstuvwxyz', 8);
 
-export function saveSnippet(s: Snippet, ttlMs: number): { id: string; expiresAt: number } {
+export function saveSnippet(s: Snippet, ttlMs: number): { id: string; expiresAt: number; deleteToken: string } {
   const id = newId();
   const now = Date.now();
-  insert.run(id, s.language, JSON.stringify(s.files), JSON.stringify(s.folders ?? []), s.stdin, now, now + ttlMs);
-  return { id, expiresAt: now + ttlMs };
+  const deleteToken = randomBytes(18).toString('base64url');
+  insert.run(id, s.language, JSON.stringify(s.files), JSON.stringify(s.folders ?? []), s.stdin, now, now + ttlMs, deleteToken);
+  return { id, expiresAt: now + ttlMs, deleteToken };
 }
 
 export function getSnippet(id: string): (Snippet & { expiresAt: number }) | undefined {
@@ -59,21 +65,12 @@ export function getSnippet(id: string): (Snippet & { expiresAt: number }) | unde
 
 export const purgeExpired = () => Number(purge.run(Date.now()).changes);
 
-// People asking to be told when the public Runverse API launches.
-db.exec(`CREATE TABLE IF NOT EXISTS waitlist (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  email TEXT NOT NULL,
-  product TEXT NOT NULL,
-  monthly_requests TEXT NOT NULL,
-  message TEXT NOT NULL DEFAULT '',
-  created_at INTEGER NOT NULL,
-  UNIQUE (email, product)
-)`);
-
-const upsertWaitlist = db.prepare(`INSERT INTO waitlist (email, product, monthly_requests, message, created_at)
-  VALUES (?, ?, ?, ?, ?)
-  ON CONFLICT (email, product) DO UPDATE SET monthly_requests = excluded.monthly_requests, message = excluded.message`);
-
-export function joinWaitlist(entry: { email: string; product: string; monthlyRequests: string; message: string }) {
-  upsertWaitlist.run(entry.email, entry.product, entry.monthlyRequests, entry.message, Date.now());
+// Only the browser that created a link holds its token, so only it can delete the link early.
+export function deleteSnippet(id: string, token: string): boolean {
+  const row = selectToken.get(id) as { delete_token: string | null } | undefined;
+  if (!row?.delete_token) return false;
+  const a = Buffer.from(row.delete_token);
+  const b = Buffer.from(token);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return false;
+  return Number(remove.run(id).changes) > 0;
 }

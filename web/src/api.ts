@@ -20,7 +20,7 @@ export interface RunResult { run: Stage; compile?: Stage; durationMs: number; ve
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch('/api' + path, {
     ...init,
-    headers: init?.body ? { 'content-type': 'application/json' } : undefined,
+    headers: { ...(init?.body ? { 'content-type': 'application/json' } : {}), ...(init?.headers as Record<string, string> | undefined) },
   });
   const body = await res.json().catch(() => ({ message: `The server returned ${res.status}.` }));
   if (!res.ok) throw new Error(body.message ?? `The server returned ${res.status}.`);
@@ -30,7 +30,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const getLanguages = () => request<Language[]>('/languages');
 export const runCode = (code: Code) => request<RunResult>('/run', { method: 'POST', body: JSON.stringify(code) });
 export const shareCode = ({ code, expiresIn }: { code: Code; expiresIn: Expiry }) =>
-  request<{ id: string; expiresAt: number }>('/snippets', { method: 'POST', body: JSON.stringify({ ...code, expiresIn }) });
+  request<{ id: string; expiresAt: number; deleteToken: string }>('/snippets', { method: 'POST', body: JSON.stringify({ ...code, expiresIn }) });
+export const deleteSharedLink = (id: string, token: string) =>
+  request<unknown>(`/snippets/${id}`, { method: 'DELETE', headers: { 'x-delete-token': token } });
 export const getSnippet = (id: string) => request<Code & { expiresAt: number }>(`/snippets/${id}`);
 
 export const languagesQuery = { queryKey: ['languages'], queryFn: getLanguages, staleTime: 60_000 };

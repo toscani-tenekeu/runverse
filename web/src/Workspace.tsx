@@ -8,7 +8,8 @@ import { useDialog } from './Dialog';
 import { Explorer, allFolders, type FileTab } from './Explorer';
 import { Resizer } from './Resizer';
 import { load, save } from './storage';
-import { ThemeToggle } from './theme';
+import { SettingsDialog, ShareDialog, formatDate } from './Settings';
+import { rememberLink } from './links';
 import { WebPreview, buildDocument, type LogLine } from './WebPreview';
 
 let nextKey = 0;
@@ -35,8 +36,6 @@ const WEB_MODES: Record<string, string> = { html: 'html', htm: 'html', css: 'css
 const modeFor = (lang: Language, file: string) =>
   lang.id === 'web' ? WEB_MODES[file.slice(file.lastIndexOf('.') + 1).toLowerCase()] ?? '' : lang.mode;
 
-const formatDate = (ms: number) => new Date(ms).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-
 interface Props {
   lang: Language;
   initial: Code;
@@ -58,6 +57,8 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
   const [stdin, setStdin] = useState(initial.stdin);
   const [toast, setToast] = useState('');
   const [shareOpen, setShareOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [shared, setShared] = useState<{ id: string; expiresAt: number } | null>(null);
   const [layout, setLayout] = useState<Layout>(() => ({ ...DEFAULT_LAYOUT, ...load<Partial<Layout>>(LAYOUT_KEY) }));
   const current = files.find(f => f.key === active) ?? files[0];
 
@@ -100,14 +101,9 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
   // ---- Sharing ----
   const share = useMutation({
     mutationFn: shareCode,
-    onSuccess: async ({ id, expiresAt: until }) => {
-      const url = `${location.origin}/s/${id}`;
-      try {
-        await navigator.clipboard.writeText(url);
-        flash(`Link copied. It works until ${formatDate(until)}.`);
-      } catch {
-        flash(`${url} (works until ${formatDate(until)})`);
-      }
+    onSuccess: ({ id, expiresAt: until, deleteToken }) => {
+      rememberLink({ id, language: lang.name, expiresAt: until, token: deleteToken });
+      setShared({ id, expiresAt: until });
     },
     onError: e => flash(e.message),
   });
@@ -295,7 +291,8 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
             </button>
             {shareOpen && (
               <div className="menu" role="menu">
-                <p className="menu-title">Link works for</p>
+                <p className="menu-title">Share this workspace</p>
+                <p className="menu-hint">Choose how long the link stays available.</p>
                 {EXPIRIES.map(x => (
                   <button key={x.id} type="button" role="menuitem" onClick={() => { setShareOpen(false); share.mutate({ code, expiresIn: x.id }); }}>
                     {x.label}
@@ -304,7 +301,6 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
               </div>
             )}
           </div>
-          <ThemeToggle />
           <button className="btn" type="button" onClick={doRun} disabled={run.isPending} title="Run (Ctrl+Enter)">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5.5v13l11-6.5z" fill="currentColor" /></svg>
             {run.isPending ? 'Running…' : isWeb ? 'Reload' : 'Run'}
@@ -365,6 +361,15 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
         </section>
       </main>
 
+      <footer className="statusbar">
+        <button className="statusbar-btn" type="button" onClick={() => setSettingsOpen(true)} aria-label="Settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5h0a1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
+          Settings
+        </button>
+      </footer>
+
+      {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} onError={flash} />}
+      {shared && <ShareDialog id={shared.id} expiresAt={shared.expiresAt} onClose={() => setShared(null)} />}
       {dialog.element}
       {toast && <div className="toast" role="status">{toast}</div>}
     </div>
