@@ -9,7 +9,10 @@ import { Login } from './Login';
 import { Workspace, Logo, draftKey, starter } from './Workspace';
 import { takePendingWorkspace } from './import';
 import { load } from './storage';
-import './styles.css';
+import { Toaster } from '@/components/ui/sonner';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
+import './index.css';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } } });
 
@@ -38,24 +41,44 @@ function SnippetPage() {
   return <Workspace key={id} lang={l} initial={snippet.data} persist={false} expiresAt={snippet.data.expiresAt} />;
 }
 
+function Brand() {
+  return (
+    <a className="flex items-center gap-2 text-[15px] font-semibold tracking-tight" href="/">
+      <Logo /><span>runverse</span>
+    </a>
+  );
+}
+
+function LanguageLinks({ languages }: { languages: Language[] }) {
+  return (
+    <div className="grid gap-3">
+      {(['language', 'framework'] as const).map(group => (
+        <ul key={group} className="flex flex-wrap gap-1.5" aria-label={group === 'language' ? 'Languages' : 'Frameworks'}>
+          {languages.filter(l => l.installed && l.group === group).map(l => (
+            <li key={l.id}>
+              <Link to="/editor/$lang" params={{ lang: l.id }} className="hover:bg-accent inline-flex h-7 items-center rounded-md border px-2.5 text-[13px]">{l.name}</Link>
+            </li>
+          ))}
+        </ul>
+      ))}
+    </div>
+  );
+}
+
 function Message({ title, text, languages }: { title: string; text?: string; languages?: Language[] }) {
   return (
-    <div className="message">
-      <a className="brand" href="/"><Logo /><span>runverse</span></a>
-      <h1>{title}</h1>
-      {text && <p>{text}</p>}
-      {languages && (
-        <>
-          <p>Pick a language or a framework to start coding:</p>
-          {(['language', 'framework'] as const).map(group => (
-            <ul key={group} className="lang-list" aria-label={group === 'language' ? 'Languages' : 'Frameworks'}>
-              {languages.filter(l => l.installed && l.group === group).map(l => (
-                <li key={l.id}><Link to="/editor/$lang" params={{ lang: l.id }}>{l.name}</Link></li>
-              ))}
-            </ul>
-          ))}
-        </>
-      )}
+    <div className="bg-chrome h-svh overflow-y-auto">
+      <div className="mx-auto grid max-w-2xl gap-5 px-6 py-16">
+        <Brand />
+        <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+        {text && <p className="text-muted-foreground">{text}</p>}
+        {languages && (
+          <>
+            <p className="text-muted-foreground">Pick a language or a framework to start coding:</p>
+            <LanguageLinks languages={languages} />
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -72,34 +95,42 @@ function StartPage() {
     { id: 'framework', title: 'Frameworks', text: 'A starter project with a live preview.' },
   ] as const;
   return (
-    <div className="start">
-      <a className="brand" href="/"><Logo /><span>runverse</span></a>
-      <h1>What do you want to build?</h1>
-      {groups.map(group => {
-        const items = data.filter(l => l.group === group.id);
-        return (
-          <section key={group.id} className="start-group" aria-labelledby={`start-${group.id}`}>
-            <h2 id={`start-${group.id}`}>{group.title} <span>{group.text}</span></h2>
-            <ul className="start-grid">
-              {items.map(l => (
-                <li key={l.id}>
-                  {l.installed ? (
-                    <Link className="start-card" to="/editor/$lang" params={{ lang: l.id }}>
-                      <strong>{l.name}</strong>
-                      <span>{[l.base, l.version].filter(Boolean).join(' · ') || (l.kind ? KIND_LABEL[l.kind] : 'In your browser')}</span>
-                    </Link>
-                  ) : (
-                    <span className="start-card is-missing" title="Not installed on this server">
-                      <strong>{l.name}</strong>
-                      <span>Not installed</span>
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </section>
-        );
-      })}
+    <div className="bg-chrome h-svh overflow-y-auto">
+      <div className="mx-auto grid max-w-4xl gap-8 px-6 py-12">
+        <Brand />
+        <h1 className="text-2xl font-semibold tracking-tight">What do you want to build?</h1>
+        {groups.map(group => {
+          const items = data.filter(l => l.group === group.id);
+          return (
+            <section key={group.id} className="grid gap-3" aria-labelledby={`start-${group.id}`}>
+              <h2 id={`start-${group.id}`} className="flex items-baseline gap-2">
+                <span className="text-[11px] font-semibold tracking-wider uppercase">{group.title}</span>
+                <span className="text-muted-foreground text-xs">{group.text}</span>
+              </h2>
+              <ul className="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2">
+                {items.map(l => (
+                  <li key={l.id}>
+                    {l.installed ? (
+                      <Link
+                        to="/editor/$lang" params={{ lang: l.id }}
+                        className="bg-background hover:border-primary/60 hover:bg-accent/40 grid gap-0.5 rounded-md border px-3 py-2.5 transition-colors"
+                      >
+                        <strong className="text-[13px] font-medium">{l.name}</strong>
+                        <span className="text-muted-foreground truncate text-xs">{[l.base, l.version].filter(Boolean).join(' ') || (l.kind ? KIND_LABEL[l.kind] : 'In your browser')}</span>
+                      </Link>
+                    ) : (
+                      <span className={cn('grid gap-0.5 rounded-md border border-dashed px-3 py-2.5 opacity-60')} title="Not installed on this server">
+                        <strong className="text-[13px] font-medium">{l.name}</strong>
+                        <span className="text-muted-foreground text-xs">Not installed</span>
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -139,7 +170,10 @@ declare module '@tanstack/react-router' {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <TooltipProvider delayDuration={400}>
+        <RouterProvider router={router} />
+        <Toaster position="bottom-right" toastOptions={{ className: 'text-[13px]' }} />
+      </TooltipProvider>
     </QueryClientProvider>
   </StrictMode>,
 );

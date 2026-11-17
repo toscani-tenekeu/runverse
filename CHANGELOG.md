@@ -4,6 +4,11 @@ Notable changes to Runverse. Dates are YYYY-MM-DD.
 
 ## 2026-11-17
 
+### Changed
+- The editor is rebuilt with shadcn/ui and Tailwind CSS in a compact, VS Code-like layout: activity bar, file explorer with file-type icons and a right-click menu, tabs and breadcrumbs, the terminal as a bottom panel, and a slim status bar. Panels are resized by dragging and remembered.
+- `Ctrl+P` opens a command palette: files and editor commands in one list.
+- The language picker is searchable.
+
 ### Added
 - Frameworks next to the languages: React, Vue, Svelte, Preact, Alpine.js and Tailwind CSS run in the browser; Laravel, Django, Flask, FastAPI and Express run in the sandbox, with an address bar in the preview where each request runs the app.
 - `/editor` is a start page with languages and frameworks in two groups, and the editor's picker groups them too.
