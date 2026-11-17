@@ -21,9 +21,10 @@ const highlight = HighlightStyle.define([
 const theme = EditorView.theme({
   '&': { height: '100%', backgroundColor: 'var(--ed-bg)', color: 'var(--ed-ink)' },
   '.cm-scroller': { fontFamily: 'var(--mono)', lineHeight: '1.65' },
-  '.cm-content': { caretColor: 'var(--accent)', padding: '14px 0' },
-  '.cm-cursor': { borderLeftColor: 'var(--accent)', borderLeftWidth: '2px' },
-  '.cm-gutters': { backgroundColor: 'var(--ed-bg)', color: 'var(--ed-muted)', border: 'none', paddingLeft: '8px' },
+  '.cm-content': { caretColor: 'var(--primary)', padding: '6px 0' },
+  '.cm-cursor': { borderLeftColor: 'var(--primary)', borderLeftWidth: '2px' },
+  '.cm-gutters': { backgroundColor: 'var(--ed-bg)', color: 'var(--ed-muted)', border: 'none', paddingLeft: '4px' },
+  '.cm-lineNumbers .cm-gutterElement': { padding: '0 12px 0 8px', minWidth: '36px' },
   '.cm-activeLine': { backgroundColor: 'var(--ed-active)' },
   '.cm-activeLineGutter': { backgroundColor: 'transparent', color: 'var(--ed-ink)' },
   '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection': { backgroundColor: 'rgba(242,182,48,.25) !important' },
@@ -126,5 +127,5 @@ export function CodeEditor({ fileKey, value, mode, onChange, onRun, fontSize, wr
     return () => { alive = false; };
   }, [mode]);
 
-  return <div className="code" ref={host} />;
+  return <div className="cm-host" ref={host} />;
 }

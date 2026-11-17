@@ -83,7 +83,7 @@ export function WebPreview({ doc, version, onLog }: Props) {
     <iframe
       key={version}
       ref={frame}
-      className="preview-frame"
+      className="block size-full border-0 bg-white"
       title="Preview"
       // No allow-same-origin: the page can't reach Runverse's cookies or storage.
       sandbox="allow-scripts allow-modals allow-forms allow-popups"

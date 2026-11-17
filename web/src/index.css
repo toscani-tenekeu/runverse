@@ -1,0 +1,142 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Light/dark follows data-theme on <html> (set before first paint in index.html, shared with the landing page). */
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+:root {
+  --radius: 0.375rem;
+  --background: #ffffff;
+  --foreground: #15233a;
+  --card: #ffffff;
+  --card-foreground: #15233a;
+  --popover: #ffffff;
+  --popover-foreground: #15233a;
+  --primary: #f2b630;
+  --primary-foreground: #15233a;
+  --secondary: #eef1f5;
+  --secondary-foreground: #15233a;
+  --muted: #eef1f5;
+  --muted-foreground: #5f6c82;
+  --accent: #e8ecf2;
+  --accent-foreground: #15233a;
+  --destructive: #c4321f;
+  --border: #dde3eb;
+  --input: #d3dae4;
+  --ring: #f2b630;
+  /* Workbench surfaces, VS Code style: the code is the brightest area, the chrome around it recedes. */
+  --chrome: #f5f7fa;
+  --chrome-2: #eceff4;
+  --ok: #1e7f4f;
+  --warn: #a15c00;
+
+  /* Code editor colours, read by CodeMirror. */
+  --ed-bg: #ffffff;
+  --ed-ink: #15233a;
+  --ed-muted: #98a3b5;
+  --ed-active: rgba(21, 35, 58, 0.04);
+  --syn-keyword: #7c3aed;
+  --syn-string: #1f7a3a;
+  --syn-number: #b45309;
+  --syn-comment: #8a96ac;
+  --syn-function: #1d4ed8;
+  --syn-type: #a16207;
+  --syn-meta: #0e7490;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+
+[data-theme="dark"] {
+  --background: #0b1220;
+  --foreground: #dce4f2;
+  --card: #0e1626;
+  --card-foreground: #dce4f2;
+  --popover: #111a2b;
+  --popover-foreground: #dce4f2;
+  --primary: #f2b630;
+  --primary-foreground: #15233a;
+  --secondary: #172133;
+  --secondary-foreground: #dce4f2;
+  --muted: #141d2e;
+  --muted-foreground: #8592aa;
+  --accent: #1a2538;
+  --accent-foreground: #e6ecf5;
+  --destructive: #ff7b6b;
+  --border: #1c2738;
+  --input: #243147;
+  --ring: #f2b630;
+  --chrome: #080e19;
+  --chrome-2: #060b14;
+  --ok: #5ccb8f;
+  --warn: #f2b630;
+
+  --ed-bg: #0b1220;
+  --ed-ink: #dce4f2;
+  --ed-muted: #56657f;
+  --ed-active: rgba(255, 255, 255, 0.035);
+  --syn-keyword: #c792ea;
+  --syn-string: #a5d6a7;
+  --syn-number: #f2b630;
+  --syn-comment: #6b7a96;
+  --syn-function: #82aaff;
+  --syn-type: #ffcb6b;
+  --syn-meta: #89ddff;
+}
+
+@theme inline {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: var(--mono);
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chrome: var(--chrome);
+  --color-chrome-2: var(--chrome-2);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-background text-foreground overflow-hidden text-[13px] antialiased;
+  }
+  /* Thin, quiet scrollbars like a code editor. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--muted-foreground) 35%, transparent) transparent;
+  }
+}
+
+/* CodeMirror fills its pane. */
+.cm-host {
+  height: 100%;
+  min-height: 0;
+}
+.cm-host .cm-editor {
+  height: 100%;
+}

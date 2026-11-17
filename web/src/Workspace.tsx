@@ -1,17 +1,23 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
+import {
+  ChevronRight, Download, Ellipsis, Eye, Files, Focus, Loader2, Moon, PanelBottom, PanelRight, Play, RotateCcw, Search,
+  Settings as SettingsIcon, Share2, Sun, Upload,
+} from 'lucide-react';
+import { useDefaultLayout, usePanelRef, useGroupRef } from 'react-resizable-panels';
+import { toast } from 'sonner';
 import { languagesQuery, runCode, shareCode, type Code, type Expiry, type Language, type RunResult } from './api';
 import { CodeEditor } from './CodeEditor';
+import { CommandPalette, type PaletteCommand } from './CommandPalette';
 import { downloadWorkspaceZip } from './export';
 import { useDialog } from './Dialog';
 import { Explorer, allFolders, type FileTab } from './Explorer';
-import { Resizer } from './Resizer';
-import { Terminal, type TerminalMode } from './Terminal';
-import { EditorTabs } from './EditorTabs';
-import { QuickOpen } from './QuickOpen';
+import { Breadcrumbs, EditorTabs } from './EditorTabs';
+import { Terminal } from './Terminal';
 import { useEditorPrefs } from './prefs';
 import { load, save } from './storage';
+import { useTheme } from './theme';
 import { ImportDialog, ImportReportDialog, SettingsDialog, ShareDialog, formatDate, type ImportKind } from './Settings';
 import { MAX_FILES as IMPORT_MAX_FILES, MAX_FOLDER_BYTES, formatBytes, readPicked, readWorkspaceZip, setPendingWorkspace, type Skipped } from './import';
 import { rememberLink } from './links';
@@ -19,6 +25,21 @@ import { WebPreview, buildDocument, type LogLine } from './WebPreview';
 import { buildFrameworkDocument } from './bundler';
 import { modeForFile } from './modes';
 import { ServerPreview, type ServerPreviewHandle } from './ServerPreview';
+import { LanguagePicker } from './workbench/LanguagePicker';
+import { PanelAction } from './workbench/PanelAction';
+import { mod } from './workbench/keys';
+import { useMobile } from './workbench/useMobile';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub,
+  DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Kbd } from '@/components/ui/kbd';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
+import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 
 let nextKey = 0;
 const toTabs = (code: Code): FileTab[] => code.files.map(f => ({ key: String(nextKey++), ...f }));
@@ -34,17 +55,6 @@ const EXPIRIES: { id: Expiry; label: string }[] = [
   { id: '15d', label: '15 days' }, { id: '20d', label: '20 days' }, { id: '30d', label: '30 days' },
 ];
 
-// Pane sizes in pixels, remembered between visits.
-interface Layout { explorer: number; side: number; top: number; editor: number }
-const LAYOUT_KEY = 'rv-layout';
-const FILES_OPEN_KEY = 'rv-files-open';
-const SIDE_OPEN_KEY = 'rv-side-open';
-const TERMINAL_KEY = 'rv-terminal';
-const TERMINAL_HEIGHT_KEY = 'rv-terminal-height';
-const RAIL_WIDTH = 44;
-const DEFAULT_LAYOUT: Layout = { explorer: 210, side: 400, top: 130, editor: 440 };
-const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
-
 // Web pages and frameworks mix kinds of files, so their highlighting follows each file's extension.
 const modeFor = (lang: Language, file: string) =>
   lang.id === 'web' || lang.group === 'framework' ? modeForFile(file, lang.mode) : lang.mode;
@@ -58,6 +68,10 @@ const TERMINAL_HINTS: Record<string, string> = {
   express: 'Commands run with Node.js and Express installed, e.g. node -v',
 };
 
+// Panel sizes are remembered per layout (desktop and phone differ).
+const storage = { getItem: (k: string) => { try { return localStorage.getItem(k); } catch { return null; } }, setItem: (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* not kept */ } } };
+const FILES_OPEN_KEY = 'rv-files-open';
+
 interface Props {
   lang: Language;
   initial: Code;
@@ -69,6 +83,8 @@ interface Props {
 export function Workspace({ lang, initial, persist, expiresAt }: Props) {
   const navigate = useNavigate();
   const dialog = useDialog();
+  const mobile = useMobile();
+  const { dark, setTheme } = useTheme();
   const { data: languages = [] } = useQuery(languagesQuery);
   // Pages and frontend frameworks run in the browser; backend frameworks answer requests from the sandbox.
   const isWeb = lang.id === 'web' || lang.kind === 'browser';
@@ -82,34 +98,75 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
   const [active, setActive] = useState(() => (files.find(f => f.name === lang.file) ?? files[0]).key);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [stdin, setStdin] = useState(initial.stdin);
-  const [toast, setToast] = useState('');
-  const [shareOpen, setShareOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [report, setReport] = useState<{ added: number; replaced: number; skipped: Skipped[] } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const folderInput = useRef<HTMLInputElement>(null);
   const zipInput = useRef<HTMLInputElement>(null);
-  const [termMode, setTermMode] = useState<TerminalMode>(() => {
-    const m = load<{ mode?: string }>(TERMINAL_KEY)?.mode;
-    return m === 'normal' || m === 'expanded' ? m : 'collapsed';
-  });
-  const [termHeight, setTermHeight] = useState(() => clamp(load<number>(TERMINAL_HEIGHT_KEY) ?? 220, 120, 700));
-  const changeTermMode = (m: TerminalMode) => { setTermMode(m); save(TERMINAL_KEY, { mode: m }); };
-  const resizeTerm = (d: number) => setTermHeight(h => { const next = clamp(h + d, 120, 700); save(TERMINAL_HEIGHT_KEY, next); return next; });
-  // A one-file program does not need the file list, so it starts out of the way (until the person chooses otherwise).
-  const [filesOpen, setFilesOpen] = useState(() => load<boolean>(FILES_OPEN_KEY) ?? initial.files.length > 1);
-  const toggleFiles = () => setFilesOpen(o => { save(FILES_OPEN_KEY, !o); return !o; });
-  const [sideOpen, setSideOpen] = useState(() => load<boolean>(SIDE_OPEN_KEY) !== false);
-  const toggleSide = () => setSideOpen(o => { save(SIDE_OPEN_KEY, !o); return !o; });
-  const [stdinOpen, setStdinOpen] = useState(() => initial.stdin.length > 0);
   const [focus, setFocus] = useState(false);
-  const [quickOpen, setQuickOpen] = useState(false);
+  const [palette, setPalette] = useState(false);
   const [cursor, setCursor] = useState({ line: 1, col: 1 });
   const prefs = useEditorPrefs();
   const [shared, setShared] = useState<{ id: string; expiresAt: number } | null>(null);
-  const [layout, setLayout] = useState<Layout>(() => ({ ...DEFAULT_LAYOUT, ...load<Partial<Layout>>(LAYOUT_KEY) }));
   const current = files.find(f => f.key === active) ?? files[0];
+
+  // ---- Panels: files | editor over terminal | output. Each can be hidden, resized, and is remembered. ----
+  const filesPanel = usePanelRef();
+  const sidePanel = usePanelRef();
+  const termPanel = usePanelRef();
+  const inputPanel = usePanelRef();
+  const centerGroup = useGroupRef();
+  const mainId = mobile ? 'rv-main-phone' : 'rv-main';
+  const mainLayout = useDefaultLayout({ id: mainId, storage });
+  const centerLayout = useDefaultLayout({ id: 'rv-center', storage });
+  // The explorer is shown unless the person chose to hide it (that choice is remembered on its own,
+  // so a one-file program closing it doesn't hide it for a multi-file project, and vice versa for sizes).
+  const filesWanted = useRef(load<boolean>(FILES_OPEN_KEY) ?? true);
+  const [filesOpen, setFilesOpen] = useState(filesWanted.current);
+  const [sideOpen, setSideOpen] = useState(true);
+  const [termOpen, setTermOpen] = useState(!!centerLayout.defaultLayout && (centerLayout.defaultLayout.terminal ?? 0) > 0);
+  const [termMax, setTermMax] = useState(false);
+  const [mobileFiles, setMobileFiles] = useState(false);
+  const [stdinOpen, setStdinOpen] = useState(() => initial.stdin.length > 0);
+  const beforeMax = useRef<Record<string, number> | null>(null);
+  const beforeFocus = useRef<{ files: boolean; side: boolean; term: boolean } | null>(null);
+
+  const toggle = (panel: typeof filesPanel, open?: boolean) => {
+    const p = panel.current;
+    if (!p) return;
+    const want = open ?? p.isCollapsed();
+    if (want) p.expand(); else p.collapse();
+  };
+  const toggleFiles = () => {
+    if (mobile) return setMobileFiles(o => !o);
+    const open = !!filesPanel.current?.isCollapsed();
+    save(FILES_OPEN_KEY, open);
+    toggle(filesPanel, open);
+  };
+  const toggleSide = () => toggle(sidePanel);
+  const toggleTerminal = () => toggle(termPanel);
+  const maximizeTerminal = () => {
+    const g = centerGroup.current;
+    if (!g) return;
+    if (termMax && beforeMax.current) { g.setLayout(beforeMax.current); beforeMax.current = null; setTermMax(false); return; }
+    beforeMax.current = g.getLayout();
+    termPanel.current?.expand();
+    g.setLayout({ editor: 0, terminal: 100 });
+    setTermMax(true);
+  };
+  const toggleFocus = () => setFocus(f => {
+    if (!f) {
+      beforeFocus.current = { files: filesOpen, side: sideOpen, term: termOpen };
+      filesPanel.current?.collapse(); sidePanel.current?.collapse(); termPanel.current?.collapse();
+    } else if (beforeFocus.current) {
+      const b = beforeFocus.current;
+      if (b.files) filesPanel.current?.expand();
+      if (b.side) sidePanel.current?.expand();
+      if (b.term) termPanel.current?.expand();
+    }
+    return !f;
+  });
 
   // Tabs: the files that are open. Whatever becomes the active file gets a tab; deleted files lose theirs.
   const [openKeys, setOpenKeys] = useState<string[]>(() => [active]);
@@ -126,6 +183,7 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
     if (key === current.key) setActive(rest[Math.max(0, at - 1)]);
     setOpenKeys(rest);
   };
+  const openFile = (key: string) => { setActive(key); setMobileFiles(false); };
 
   const code = useMemo<Code>(() => ({
     language: lang.id,
@@ -140,14 +198,8 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
     const size = code.files.reduce((n, f) => n + f.content.length, 0);
     save(draftKey(lang.id), size > 1_000_000 ? null : code);
   }, [persist, lang.id, code]);
-  useEffect(() => { save(LAYOUT_KEY, layout); }, [layout]);
 
-  const toastTimer = useRef(0);
-  const flash = (msg: string) => {
-    setToast(msg);
-    clearTimeout(toastTimer.current);
-    toastTimer.current = window.setTimeout(() => setToast(''), 3200);
-  };
+  const flash = (msg: string) => toast(msg);
 
   // ---- Running ----
   const run = useMutation({ mutationFn: runCode });
@@ -181,8 +233,7 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
 
   const doRun = () => {
     // The result appears in the output panel, so make sure it is visible.
-    setSideOpen(true);
-    save(SIDE_OPEN_KEY, true);
+    sidePanel.current?.expand();
     if (isWeb) return rebuild(true);
     if (isServer) return serverPreview.current?.reload();
     if (!run.isPending) run.mutate(code);
@@ -197,16 +248,6 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
     },
     onError: e => flash(e.message),
   });
-  const shareRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!shareOpen) return;
-    const close = (e: Event) => {
-      if (e instanceof KeyboardEvent ? e.key === 'Escape' : !shareRef.current?.contains(e.target as Node)) setShareOpen(false);
-    };
-    addEventListener('pointerdown', close);
-    addEventListener('keydown', close);
-    return () => { removeEventListener('pointerdown', close); removeEventListener('keydown', close); };
-  }, [shareOpen]);
 
   // ---- Files and folders ----
   const existing = (extra: string[] = []) => new Set([...files.map(f => f.name), ...allFolders(files, folders), ...extra]);
@@ -353,6 +394,7 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
       const tabs = picked.map(f => ({ key: String(nextKey++), ...f }));
       setFiles([...keep, ...tabs]);
       setActive(tabs[0].key);
+      filesPanel.current?.expand();
       if (skipped.length) setReport({ added: picked.length, replaced, skipped });
       else flash(`Imported ${picked.length} file${picked.length === 1 ? '' : 's'}${replaced ? `, replaced ${replaced}` : ''}.`);
     } catch (e) {
@@ -392,17 +434,23 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
     }
   };
 
+  const exportZip = () => downloadWorkspaceZip(code, `runverse-${lang.id}`);
+
   // ---- Keyboard shortcuts ----
+  const keys = useRef({ toggleFiles, toggleSide, toggleTerminal, toggleFocus });
+  keys.current = { toggleFiles, toggleSide, toggleTerminal, toggleFocus };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;
-      if (document.querySelector('dialog[open]')) return; // a dialog has the keyboard
+      if (e.ctrlKey && !e.metaKey && !e.altKey && e.key === '`') { e.preventDefault(); keys.current.toggleTerminal(); return; }
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      if (document.querySelector('[role="dialog"]')) return; // a dialog has the keyboard
       const act = (fn: () => void) => { e.preventDefault(); fn(); };
+      if (e.shiftKey) { if (e.key.toLowerCase() === 'p') act(() => setPalette(true)); return; }
       switch (e.key) {
-        case 'p': return act(() => setQuickOpen(true));
-        case 'b': return act(toggleFiles);
-        case '\\': return act(toggleSide);
-        case '.': return act(() => setFocus(f => !f));
+        case 'p': return act(() => setPalette(true));
+        case 'b': return act(keys.current.toggleFiles);
+        case '\\': return act(keys.current.toggleSide);
+        case '.': return act(keys.current.toggleFocus);
         case ',': return act(() => setSettingsOpen(true));
       }
     };
@@ -410,196 +458,346 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
     return () => removeEventListener('keydown', onKey, true);
   }, []);
 
-  // ---- Layout ----
-  const resize = (key: keyof Layout, min: number, max: number) => (delta: number) =>
-    setLayout(l => ({ ...l, [key]: clamp(l[key] + delta, min, max) }));
-  const style = {
-    '--explorer-w': focus ? '0px' : `${filesOpen ? layout.explorer : RAIL_WIDTH}px`,
-    '--rz-a': focus ? '0px' : '8px',
-    '--side-w': sideOpen ? `${layout.side}px` : '0px',
-    '--rz-b': sideOpen ? '8px' : '0px',
-    '--top-h': `${layout.top}px`,
-    '--editor-h': `${layout.editor}px`,
-  } as CSSProperties;
+  const runLabel = run.isPending ? 'Running…' : usesPreview ? 'Reload' : 'Run';
+  const sideLabel = usesPreview ? 'Preview' : 'Output';
+
+  const commands: PaletteCommand[] = [
+    { id: 'run', label: usesPreview ? 'Reload preview' : 'Run', icon: <Play />, shortcut: `${mod}+Enter`, run: doRun },
+    { id: 'new-file', label: 'New file…', icon: <Files />, run: () => newFile('') },
+    { id: 'new-folder', label: 'New folder…', icon: <Files />, run: () => newFolder('') },
+    { id: 'files', label: 'Toggle file explorer', icon: <Files />, shortcut: `${mod}+B`, run: toggleFiles },
+    { id: 'side', label: `Toggle ${sideLabel.toLowerCase()} panel`, icon: <PanelRight />, shortcut: `${mod}+\\`, run: toggleSide },
+    { id: 'terminal', label: 'Toggle terminal', icon: <PanelBottom />, shortcut: 'Ctrl+`', run: toggleTerminal },
+    { id: 'focus', label: focus ? 'Leave focus mode' : 'Focus mode', icon: <Focus />, shortcut: `${mod}+.`, run: toggleFocus },
+    { id: 'theme', label: dark ? 'Light theme' : 'Dark theme', icon: dark ? <Sun /> : <Moon />, run: () => setTheme(dark ? 'light' : 'dark') },
+    { id: 'import', label: 'Import files, a folder or a workspace…', icon: <Upload />, run: () => setImportOpen(true) },
+    { id: 'export', label: 'Export workspace as .zip', icon: <Download />, run: exportZip },
+    ...EXPIRIES.map(x => ({ id: `share-${x.id}`, label: `Share a link for ${x.label}`, icon: <Share2 />, run: () => share.mutate({ code, expiresIn: x.id }) })),
+    { id: 'reset', label: 'Start over from the example', icon: <RotateCcw />, run: reset },
+    { id: 'settings', label: 'Settings', icon: <SettingsIcon />, shortcut: `${mod}+,`, run: () => setSettingsOpen(true) },
+  ];
+
+  const explorer = (
+    <Explorer
+      title={lang.name} files={files} folders={folders} activeKey={current.key} collapsed={collapsed}
+      onOpen={openFile} onToggle={toggleFolder}
+      onCollapseAll={() => setCollapsed(new Set(allFolders(files, folders)))}
+      onNewFile={newFile} onNewFolder={newFolder}
+      onRenameFile={renameFile} onRenameFolder={renameFolder}
+      onDeleteFile={deleteFile} onDeleteFolder={deleteFolder}
+      onSetEntry={setEntry}
+    />
+  );
+
+  const editor = (
+    <section className="bg-background flex h-full min-h-0 flex-col" aria-label="Code">
+      <EditorTabs files={files} openKeys={openKeys} activeKey={current.key} onSelect={setActive} onClose={closeTab} onNew={() => newFile('')} />
+      <Breadcrumbs path={current.name} />
+      <div className="min-h-0 flex-1">
+        <CodeEditor
+          fileKey={current.key} value={current.content} mode={modeFor(lang, current.name)} onChange={updateContent} onRun={doRun}
+          fontSize={prefs.fontSize} wrap={prefs.wrap} onCursor={setCursor}
+        />
+      </div>
+    </section>
+  );
+
+  const terminal = (
+    <Terminal
+      visible={termOpen} maximized={termMax} onMaximize={maximizeTerminal} onClose={() => termPanel.current?.collapse()}
+      files={code.files} folders={folders}
+      available={isServer ? lang.installed : languages.some(l => l.id === 'bash' && l.installed)}
+      framework={isServer ? { id: lang.id, hint: TERMINAL_HINTS[lang.id] ?? '' } : undefined}
+    />
+  );
+
+  const center = (
+    <ResizablePanelGroup
+      orientation="vertical" id="rv-center" groupRef={centerGroup}
+      defaultLayout={centerLayout.defaultLayout ?? { editor: 100, terminal: 0 }} onLayoutChanged={centerLayout.onLayoutChanged}
+    >
+      <ResizablePanel id="editor" minSize={0}>{editor}</ResizablePanel>
+      <ResizableHandle className={cn(!termOpen && 'pointer-events-none opacity-0')} />
+      <ResizablePanel
+        id="terminal" panelRef={termPanel} collapsible collapsedSize={0} minSize={100}
+        onResize={s => { setTermOpen(s.inPixels > 0); if (termMax && s.asPercentage < 95) setTermMax(false); }}
+      >{terminal}</ResizablePanel>
+    </ResizablePanelGroup>
+  );
+
+  // ---- Output side: preview + console, or input + output. ----
+  const sectionHead = (label: string, extra?: ReactNode, onToggle?: () => void, open?: boolean) => (
+    <div className="flex h-7 shrink-0 items-center gap-1 px-3">
+      {onToggle ? (
+        <button type="button" onClick={onToggle} aria-expanded={open} className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-[11px] font-semibold tracking-wider uppercase">
+          <ChevronRight className={cn('size-3.5 transition-transform', open && 'rotate-90')} />{label}
+        </button>
+      ) : (
+        <span className="text-muted-foreground text-[11px] font-semibold tracking-wider uppercase">{label}</span>
+      )}
+      <span className="flex-1" />
+      {extra}
+    </div>
+  );
+
+  const consoleLines = (
+    <pre className="min-h-0 flex-1 overflow-auto px-3 pb-2 font-mono text-[12.5px] leading-[1.55] break-words whitespace-pre-wrap">
+      {logs.length
+        ? logs.map((l, i) => <span key={i} className={l.level === 'error' ? 'text-destructive' : l.level === 'warn' ? 'text-warn' : l.level === 'info' ? 'text-muted-foreground' : ''}>{l.text}{'\n'}</span>)
+        : <span className="text-muted-foreground">{isServer ? 'Requests, and what your app prints, show up here.' : 'console.log() output shows up here.'}</span>}
+    </pre>
+  );
+
+  const side = usesPreview ? (
+    <ResizablePanelGroup orientation="vertical" id="rv-preview">
+      <ResizablePanel id="preview" minSize={80}>
+        <div className="flex h-full min-h-0 flex-col">
+          {sectionHead('Preview', isServer
+            ? <span className="text-muted-foreground truncate text-[11px]">runs your app for each page</span>
+            : <PanelAction label={`Reload (${mod}+Enter)`} onClick={doRun}><RotateCcw /></PanelAction>)}
+          <div className="min-h-0 flex-1 bg-white">
+            {isServer
+              ? <ServerPreview ref={serverPreview} code={code} onLog={line => setLogs(l => [...l.slice(-299), line])} />
+              : <WebPreview doc={webDoc} version={webVersion} onLog={line => setLogs(l => [...l.slice(-199), line])} />}
+          </div>
+        </div>
+      </ResizablePanel>
+      <ResizableHandle />
+      <ResizablePanel id="console" defaultSize={150} minSize={28} collapsible collapsedSize={28}>
+        <div className="flex h-full min-h-0 flex-col">
+          {sectionHead('Console', logs.length > 0 && <button type="button" className="text-muted-foreground hover:text-foreground text-[11px]" onClick={() => setLogs([])}>Clear</button>)}
+          {consoleLines}
+        </div>
+      </ResizablePanel>
+    </ResizablePanelGroup>
+  ) : (
+    <ResizablePanelGroup orientation="vertical" id="rv-io">
+      <ResizablePanel
+        id="stdin" panelRef={inputPanel} minSize={80} collapsible collapsedSize={28}
+        defaultSize={stdinOpen ? 140 : 28} onResize={s => setStdinOpen(s.inPixels > 30)}
+      >
+        <div className="flex h-full min-h-0 flex-col">
+          {sectionHead('Input', !stdinOpen && stdin ? <span className="text-muted-foreground text-[11px]">has text</span> : <span className="text-muted-foreground text-[11px]">stdin</span>, () => toggle(inputPanel), stdinOpen)}
+          {stdinOpen && (
+            <Textarea
+              value={stdin} onChange={e => setStdin(e.target.value)} spellCheck={false}
+              placeholder="Text your program reads from standard input"
+              className="min-h-0 flex-1 resize-none rounded-none border-0 bg-transparent px-3 py-1 font-mono text-[12.5px] shadow-none focus-visible:ring-0 dark:bg-transparent"
+            />
+          )}
+        </div>
+      </ResizablePanel>
+      <ResizableHandle />
+      <ResizablePanel id="output" minSize={80}>
+        <div className="flex h-full min-h-0 flex-col" aria-live="polite">
+          {sectionHead('Output', run.data && !run.isPending && <span className="text-muted-foreground text-[11px]">{run.data.durationMs} ms</span>)}
+          <Output pending={run.isPending} error={run.error?.message} result={run.data} />
+        </div>
+      </ResizablePanel>
+    </ResizablePanelGroup>
+  );
+
+  const sideBox = <aside className="bg-chrome flex h-full min-h-0 flex-col" aria-label={usesPreview ? 'Preview and console' : 'Input and output'}>{side}</aside>;
+
+  // Apply the remembered explorer choice once the panels exist (saved sizes may come from another project).
+  useEffect(() => {
+    if (filesWanted.current) filesPanel.current?.expand(); else filesPanel.current?.collapse();
+  }, [mobile]);
 
   return (
-    <div className={`app${focus ? ' is-focus' : ''}${sideOpen ? '' : ' no-side'}`}>
-      <header className="bar">
-        <a className="brand" href="/" aria-label="Runverse home">
-          <Logo />
-          <span>runverse</span>
-        </a>
-        <label className="picker">
-          <span className="sr-only">Language</span>
-          <select value={lang.id} onChange={e => navigate({ to: '/editor/$lang', params: { lang: e.target.value } })}>
-            {(['language', 'framework'] as const).map(group => (
-              <optgroup key={group} label={group === 'language' ? 'Languages' : 'Frameworks'}>
-                {languages.filter(l => l.group === group).map(l => (
-                  <option key={l.id} value={l.id} disabled={!l.installed}>
-                    {l.name}{l.version ? ` ${l.version}` : l.installed ? '' : ' (not installed)'}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-        </label>
-        {expiresAt && <span className="expires">Shared link, works until {formatDate(expiresAt)}</span>}
-        <div className="bar-actions">
-          <button className="icon-btn" type="button" onClick={reset} title="Reset to the starter example" aria-label="Reset">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /></svg>
-          </button>
-          <button className="icon-btn" type="button" title="Import files, a folder or a workspace" aria-label="Import" onClick={() => setImportOpen(true)}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" /><path d="M12 3v12" /><path d="m8 11 4 4 4-4" /></svg>
-          </button>
+    <div className="bg-background flex h-svh flex-col">
+      {!focus && (
+        <header className="bg-chrome-2 flex h-9 shrink-0 items-center gap-1 border-b pr-1.5 pl-2">
+          <a href="/" className="mr-1 flex items-center gap-1.5 rounded px-1 py-0.5" aria-label="Runverse home">
+            <Logo className="size-5" />
+            <span className="hidden text-[13px] font-semibold tracking-tight sm:inline">runverse</span>
+          </a>
+          <LanguagePicker current={lang} languages={languages} onPick={id => navigate({ to: '/editor/$lang', params: { lang: id } })} />
+          {expiresAt && <span className="text-muted-foreground hidden truncate text-[11px] lg:inline">Shared link, works until {formatDate(expiresAt)}</span>}
+
+          {/* The command centre, like VS Code: one click to find a file or a command. */}
           <button
-            className="icon-btn" type="button" title="Export workspace as .zip" aria-label="Export workspace as .zip"
-            onClick={() => downloadWorkspaceZip(code, `runverse-${lang.id}`)}
+            type="button" onClick={() => setPalette(true)}
+            className="bg-background/60 hover:bg-background text-muted-foreground mx-auto hidden h-6 w-full max-w-80 items-center gap-2 rounded-md border px-2 text-[12px] md:flex"
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" /><path d="M12 15V3" /><path d="m8 7 4-4 4 4" /></svg>
+            <Search className="size-3.5" />
+            <span className="truncate">Search files and commands</span>
+            <Kbd className="ml-auto h-4 text-[10px]">{mod} P</Kbd>
           </button>
-          <div className="share" ref={shareRef}>
-            <button
-              className="icon-btn" type="button" aria-haspopup="menu" aria-expanded={shareOpen}
-              title={share.isPending ? 'Sharing…' : 'Share a link'} aria-label="Share"
-              onClick={() => setShareOpen(o => !o)} disabled={share.isPending}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4" /></svg>
-            </button>
-            {shareOpen && (
-              <div className="menu" role="menu">
-                <p className="menu-title">Share this workspace</p>
-                <p className="menu-hint">Choose how long the link stays available.</p>
-                {EXPIRIES.map(x => (
-                  <button key={x.id} type="button" role="menuitem" onClick={() => { setShareOpen(false); share.mutate({ code, expiresIn: x.id }); }}>
-                    {x.label}
-                  </button>
-                ))}
-              </div>
-            )}
+          <span className="flex-1 md:hidden" />
+
+          <div className="hidden items-center md:flex">
+            <TitleAction label="Start over from the example" onClick={reset}><RotateCcw /></TitleAction>
+            <TitleAction label="Import" onClick={() => setImportOpen(true)}><Upload /></TitleAction>
+            <TitleAction label="Export workspace as .zip" onClick={exportZip}><Download /></TitleAction>
+            <ShareMenu pending={share.isPending} onShare={id => share.mutate({ code, expiresIn: id })} />
           </div>
-          <button className="btn" type="button" onClick={doRun} disabled={run.isPending} title="Run (Ctrl+Enter)">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5.5v13l11-6.5z" fill="currentColor" /></svg>
-            {run.isPending ? 'Running…' : usesPreview ? 'Reload' : 'Run'}
-          </button>
-        </div>
-      </header>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon-xs" className="md:hidden" aria-label="More"><Ellipsis /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuItem onSelect={() => setImportOpen(true)}><Upload />Import…</DropdownMenuItem>
+              <DropdownMenuItem onSelect={exportZip}><Download />Export as .zip</DropdownMenuItem>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger><Share2 />Share a link</DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  {EXPIRIES.map(x => <DropdownMenuItem key={x.id} onSelect={() => share.mutate({ code, expiresIn: x.id })}>{x.label}</DropdownMenuItem>)}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              <DropdownMenuItem onSelect={reset}><RotateCcw />Start over</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => setSettingsOpen(true)}><SettingsIcon />Settings</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button size="xs" className="ml-1 gap-1 px-2.5 text-[12px] font-semibold" onClick={doRun} disabled={run.isPending} title={`${runLabel} (${mod}+Enter)`}>
+            {run.isPending ? <Loader2 className="animate-spin" /> : usesPreview ? <RotateCcw /> : <Play className="fill-current" />}
+            {runLabel}
+          </Button>
+        </header>
+      )}
 
-      <main className="panes" style={style}>
-        <Explorer
-          files={files} folders={folders} activeKey={current.key} collapsed={collapsed}
-          onOpen={setActive} onToggle={toggleFolder}
-          onNewFile={newFile} onNewFolder={newFolder}
-          onRenameFile={renameFile} onRenameFolder={renameFolder}
-          onDeleteFile={deleteFile} onDeleteFolder={deleteFolder}
-          onSetEntry={setEntry}
-          open={filesOpen} onTogglePanel={toggleFiles}
-        />
-        {filesOpen
-          ? <Resizer axis="x" className="desktop-only" label="Resize file list" onResize={resize('explorer', 140, 480)} />
-          : <div className="desktop-only" aria-hidden="true" />}
+      <div className="flex min-h-0 flex-1">
+        {!focus && !mobile && (
+          <nav className="bg-chrome-2 flex w-11 shrink-0 flex-col items-center gap-0.5 border-r py-1" aria-label="Views">
+            <ActivityButton label={`Explorer (${mod}+B)`} active={filesOpen} onClick={toggleFiles}><Files /></ActivityButton>
+            <ActivityButton label={`Go to file (${mod}+P)`} onClick={() => setPalette(true)}><Search /></ActivityButton>
+            <ActivityButton label={`${sideLabel} (${mod}+\\)`} active={sideOpen} onClick={toggleSide}>{usesPreview ? <Eye /> : <PanelRight />}</ActivityButton>
+            <ActivityButton label="Terminal (Ctrl+`)" active={termOpen} onClick={toggleTerminal}><PanelBottom /></ActivityButton>
+            <span className="flex-1" />
+            <ActivityButton label={dark ? 'Light theme' : 'Dark theme'} onClick={() => setTheme(dark ? 'light' : 'dark')}>{dark ? <Sun /> : <Moon />}</ActivityButton>
+            <ActivityButton label={`Settings (${mod}+,)`} onClick={() => setSettingsOpen(true)}><SettingsIcon /></ActivityButton>
+          </nav>
+        )}
 
-        <section className="pane editor-pane" aria-label="Code">
-          <EditorTabs
-            files={files} openKeys={openKeys} activeKey={current.key}
-            onSelect={setActive} onClose={closeTab} onNew={() => newFile('')}
-          />
-          <CodeEditor
-            fileKey={current.key} value={current.content} mode={modeFor(lang, current.name)} onChange={updateContent} onRun={doRun}
-            fontSize={prefs.fontSize} wrap={prefs.wrap} onCursor={setCursor}
-          />
-        </section>
-        <Resizer axis="x" className="desktop-only" label="Resize output panel" onResize={d => resize('side', 260, innerWidth * 0.65)(-d)} />
-        <Resizer axis="y" className="mobile-only" label="Resize editor" onResize={resize('editor', 200, 1400)} />
-
-        <section className="side" aria-hidden={!sideOpen} aria-label={usesPreview ? 'Preview and console' : 'Input and output'}>
-          {usesPreview ? (
+        <ResizablePanelGroup
+          key={mainId} orientation={mobile ? 'vertical' : 'horizontal'} id={mainId}
+          defaultLayout={mainLayout.defaultLayout} onLayoutChanged={mainLayout.onLayoutChanged}
+          className="min-w-0"
+        >
+          {!mobile && (
             <>
-              <div className="block preview">
-                <span className="label">Preview{isServer && <small> · runs your app for each page; press Reload after editing</small>}</span>
-                {isServer
-                  ? <ServerPreview ref={serverPreview} code={code} onLog={line => setLogs(l => [...l.slice(-299), line])} />
-                  : <WebPreview doc={webDoc} version={webVersion} onLog={line => setLogs(l => [...l.slice(-199), line])} />}
-              </div>
-              <Resizer axis="y" label="Resize console" onResize={d => resize('top', 60, 900)(-d)} />
-              <div className="block console" style={{ height: 'var(--top-h)' }}>
-                <span className="label">Console {logs.length > 0 && <button type="button" className="linkish" onClick={() => setLogs([])}>Clear</button>}</span>
-                <pre className="out">
-                  {logs.length ? logs.map((l, i) => <span key={i} className={l.level === 'error' ? 'err' : l.level === 'warn' ? 'warn' : l.level === 'info' ? 'muted' : ''}>{l.text}{'\n'}</span>)
-                    : <span className="muted">{isServer ? 'Requests, and what your app prints, show up here.' : 'console.log() output shows up here.'}</span>}
-                </pre>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className={`block stdin${stdinOpen ? '' : ' is-closed'}`} style={stdinOpen ? { height: 'var(--top-h)' } : undefined}>
-                <button type="button" className="label label-btn" aria-expanded={stdinOpen} onClick={() => setStdinOpen(o => !o)}>
-                  <svg className={`label-chev${stdinOpen ? ' open' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
-                  Input <small>(stdin){!stdinOpen && stdin ? ' · has text' : ''}</small>
-                </button>
-                {stdinOpen && <textarea autoFocus value={stdin} onChange={e => setStdin(e.target.value)} spellCheck={false} placeholder="Text your program reads from standard input" />}
-              </div>
-              {stdinOpen && <Resizer axis="y" label="Resize input box" onResize={resize('top', 60, 900)} />}
-              <div className="block output" aria-live="polite">
-                <span className="label">Output</span>
-                <Output pending={run.isPending} error={run.error?.message} result={run.data} />
-              </div>
+              <ResizablePanel
+                id="files" panelRef={filesPanel} collapsible collapsedSize={0} minSize={150} maxSize={520} defaultSize={filesOpen ? 230 : 0}
+                onResize={s => setFilesOpen(s.inPixels > 0)}
+              >{explorer}</ResizablePanel>
+              <ResizableHandle className={cn(!filesOpen && 'pointer-events-none opacity-0')} />
             </>
           )}
-        </section>
-      </main>
+          <ResizablePanel id="center" minSize={mobile ? 160 : 280}>{center}</ResizablePanel>
+          <ResizableHandle className={cn(!sideOpen && 'pointer-events-none opacity-0')} />
+          <ResizablePanel
+            id="side" panelRef={sidePanel} collapsible collapsedSize={0} minSize={mobile ? 120 : 240} defaultSize={mobile ? '40%' : 420}
+            onResize={s => setSideOpen(s.inPixels > 0)}
+          >{sideBox}</ResizablePanel>
+        </ResizablePanelGroup>
+      </div>
 
-      <Terminal
-        mode={termMode} onMode={changeTermMode} height={termHeight} onResize={resizeTerm}
-        files={code.files} folders={folders}
-        available={isServer ? lang.installed : languages.some(l => l.id === 'bash' && l.installed)}
-        framework={isServer ? { id: lang.id, hint: TERMINAL_HINTS[lang.id] ?? '' } : undefined}
-      />
-
-      <footer className="statusbar">
-        <button className="statusbar-btn" type="button" onClick={toggleFiles} aria-pressed={filesOpen && !focus} aria-label="Files" title={`Files (${modKey}+B)`}>
-          <Ico d="M4 5h16v14H4zM9 5v14" /><span className="sb-label">Files</span>
-        </button>
-        <button className="statusbar-btn" type="button" onClick={toggleSide} aria-pressed={sideOpen} aria-label="Output" title={`Output (${modKey}+\\)`}>
-          <Ico d="M4 5h16v14H4zM15 5v14" /><span className="sb-label">Output</span>
-        </button>
-        <button className="statusbar-btn" type="button" onClick={() => changeTermMode(termMode === 'collapsed' ? 'normal' : 'collapsed')} aria-pressed={termMode !== 'collapsed'} aria-label="Terminal" title="Terminal (Ctrl+`)">
-          <Ico d="m5 8 4 4-4 4M12 17h7" /><span className="sb-label">Terminal</span>
-        </button>
-        <span className="statusbar-spacer" />
-        {focus && (
-          <button className="statusbar-btn statusbar-run" type="button" onClick={doRun} disabled={run.isPending} aria-label="Run" title="Run (Ctrl+Enter)">
-            <Ico d="M7 5.5v13l11-6.5z" /><span className="sb-label">{run.isPending ? 'Running…' : 'Run'}</span>
-          </button>
+      <footer className="bg-chrome-2 text-muted-foreground flex h-6 shrink-0 items-center gap-0.5 border-t px-1 text-[11px]">
+        {(mobile || focus) && (
+          <>
+            <StatusButton label="Files" onClick={toggleFiles} active={mobile ? mobileFiles : filesOpen}><Files /></StatusButton>
+            <StatusButton label={sideLabel} onClick={toggleSide} active={sideOpen}><PanelRight /></StatusButton>
+            <StatusButton label="Terminal" onClick={toggleTerminal} active={termOpen}><PanelBottom /></StatusButton>
+          </>
         )}
-        <span className="statusbar-info" aria-label="Cursor position">Ln {cursor.line}, Col {cursor.col}</span>
-        <span className="statusbar-info sb-lang">{lang.name}{lang.version ? ` ${lang.version}` : ''}</span>
-        <button className="statusbar-btn" type="button" onClick={() => setFocus(f => !f)} aria-pressed={focus} aria-label={focus ? 'Leave focus mode' : 'Focus mode'} title={`${focus ? 'Leave focus mode' : 'Focus mode: just the code'} (${modKey}+.)`}>
-          <Ico d={focus ? 'M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5' : 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5'} />
-        </button>
-        <button className="statusbar-btn" type="button" onClick={() => setSettingsOpen(true)} aria-label="Settings" title={`Settings (${modKey}+,)`}>
-          <Ico d="M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5h0a1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
-          <span className="sb-label">Settings</span>
-        </button>
+        {focus && (
+          <StatusButton label={runLabel} onClick={doRun} disabled={run.isPending}><Play /></StatusButton>
+        )}
+        <span className="flex-1" />
+        <span className="px-1.5 tabular-nums" aria-label="Cursor position">Ln {cursor.line}, Col {cursor.col}</span>
+        <span className="hidden px-1.5 sm:inline">{files.length} file{files.length === 1 ? '' : 's'}</span>
+        <span className="px-1.5">{lang.name}{lang.version ? ` ${lang.version}` : ''}</span>
+        <StatusButton label={focus ? 'Leave focus mode' : 'Focus mode'} onClick={toggleFocus} active={focus}><Focus /></StatusButton>
       </footer>
+
+      {mobile && (
+        <Sheet open={mobileFiles} onOpenChange={setMobileFiles}>
+          <SheetContent side="left" className="w-72 gap-0 p-0" onOpenAutoFocus={e => e.preventDefault()}>
+            <SheetTitle className="sr-only">Files</SheetTitle>
+            <SheetDescription className="sr-only">The files in this workspace.</SheetDescription>
+            {explorer}
+          </SheetContent>
+        </Sheet>
+      )}
 
       <input ref={fileInput} type="file" multiple hidden onChange={e => { addPicked(e.target.files, 'files'); e.target.value = ''; }} />
       <input ref={folderInput} type="file" hidden {...{ webkitdirectory: '', directory: '' }} onChange={e => { addPicked(e.target.files, 'folder'); e.target.value = ''; }} />
       <input ref={zipInput} type="file" accept=".zip,application/zip" hidden onChange={e => { importWorkspace(e.target.files); e.target.value = ''; }} />
-      {quickOpen && <QuickOpen files={files} activeKey={current.key} onPick={setActive} onClose={() => setQuickOpen(false)} />}
+      {palette && <CommandPalette files={files} activeKey={current.key} commands={commands} onPick={openFile} onClose={() => setPalette(false)} />}
       {importOpen && <ImportDialog onChoose={chooseImport} onClose={() => setImportOpen(false)} />}
       {report && <ImportReportDialog report={report} onClose={() => setReport(null)} />}
       {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} onError={flash} />}
       {shared && <ShareDialog id={shared.id} expiresAt={shared.expiresAt} onClose={() => setShared(null)} />}
       {dialog.element}
-      {toast && <div className="toast" role="status">{toast}</div>}
     </div>
   );
 }
 
+function TitleAction({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button variant="ghost" size="icon-xs" className="text-muted-foreground hover:text-foreground size-7 [&_svg]:size-3.5" aria-label={label} onClick={onClick}>{children}</Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="text-xs">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+function ShareMenu({ pending, onShare }: { pending: boolean; onShare: (id: Expiry) => void }) {
+  return (
+    <DropdownMenu>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon-xs" className="text-muted-foreground hover:text-foreground size-7 [&_svg]:size-3.5" aria-label="Share" disabled={pending}>
+              {pending ? <Loader2 className="animate-spin" /> : <Share2 />}
+            </Button>
+          </DropdownMenuTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Share a link</TooltipContent>
+      </Tooltip>
+      <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuLabel className="text-muted-foreground text-[11px] font-normal">Link stays available for</DropdownMenuLabel>
+        {EXPIRIES.map(x => <DropdownMenuItem key={x.id} className="text-[13px]" onSelect={() => onShare(x.id)}>{x.label}</DropdownMenuItem>)}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function ActivityButton({ label, active, onClick, children }: { label: string; active?: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button" aria-label={label} aria-pressed={active} onClick={onClick}
+          className={cn(
+            'relative inline-flex size-10 items-center justify-center rounded-md outline-none [&_svg]:size-[18px]',
+            'text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 focus-visible:ring-2',
+            active && 'text-foreground before:bg-primary before:absolute before:inset-y-2 before:-left-0.5 before:w-0.5 before:rounded-full',
+          )}
+        >{children}</button>
+      </TooltipTrigger>
+      <TooltipContent side="right" className="text-xs">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+function StatusButton({ label, onClick, active, disabled, children }: { label: string; onClick: () => void; active?: boolean; disabled?: boolean; children: ReactNode }) {
+  return (
+    <button
+      type="button" onClick={onClick} disabled={disabled} aria-pressed={active} aria-label={label} title={label}
+      className={cn('hover:bg-accent hover:text-foreground inline-flex h-5 items-center gap-1 rounded px-1.5 disabled:opacity-50 [&_svg]:size-3', active && 'text-foreground')}
+    >{children}<span className="hidden sm:inline">{label}</span></button>
+  );
+}
+
 function Output({ pending, error, result }: { pending: boolean; error?: string; result?: RunResult }) {
-  if (pending) return <pre className="out muted">Running…</pre>;
-  if (error) return <pre className="out err">{error}</pre>;
-  if (!result) return <pre className="out muted">Press Run or Ctrl+Enter to see the output here.</pre>;
+  const box = 'min-h-0 flex-1 overflow-auto px-3 pb-2 font-mono text-[12.5px] leading-[1.55] break-words whitespace-pre-wrap';
+  if (pending) return <pre className={cn(box, 'text-muted-foreground')}>Running…</pre>;
+  if (error) return <pre className={cn(box, 'text-destructive')}>{error}</pre>;
+  if (!result) return <pre className={cn(box, 'text-muted-foreground')}>Press Run or {mod}+Enter to see the output here.</pre>;
 
   const { compile, run } = result;
   const compileFailed = compile && compile.code !== 0;
@@ -613,29 +811,25 @@ function Output({ pending, error, result }: { pending: boolean; error?: string; 
 
   return (
     <>
-      <pre className="out">
-        {!compileFailed && compile?.stderr && <span className="warn">{compile.stderr}</span>}
+      <pre className={box}>
+        {!compileFailed && compile?.stderr && <span className="text-warn">{compile.stderr}</span>}
         {stage.stdout}
-        {stage.stderr && <span className="err">{stage.stderr}</span>}
-        {!stage.stdout && !stage.stderr && <span className="muted">(no output)</span>}
+        {stage.stderr && <span className="text-destructive">{stage.stderr}</span>}
+        {!stage.stdout && !stage.stderr && <span className="text-muted-foreground">(no output)</span>}
       </pre>
-      <p className={`status ${ok ? 'ok' : 'bad'}`}>{status} · {result.durationMs} ms</p>
+      <p className={cn('flex h-6 shrink-0 items-center gap-1.5 border-t px-3 text-[11px]', ok ? 'text-ok' : 'text-destructive')}>
+        <span className={cn('size-1.5 rounded-full', ok ? 'bg-ok' : 'bg-destructive')} />{status}
+      </p>
     </>
   );
 }
 
-const modKey = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl';
-
-const Ico = ({ d }: { d: string }) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={d} /></svg>
-);
-
-export function Logo() {
+export function Logo({ className }: { className?: string }) {
   return (
-    <svg className="logo" viewBox="0 0 32 32" aria-hidden="true">
-      <path className="arc" d="M23.8 8.2A11 11 0 1 0 23.8 23.8" />
-      <path className="play" d="M13.2 11.2 21 16l-7.8 4.8z" />
-      <circle className="planet" cx="27.5" cy="16" r="3.2" />
+    <svg className={cn('size-6 shrink-0 overflow-visible', className)} viewBox="0 0 32 32" aria-hidden="true">
+      <path d="M23.8 8.2A11 11 0 1 0 23.8 23.8" fill="none" stroke="currentColor" strokeWidth="4.2" strokeLinecap="round" />
+      <path d="M13.2 11.2 21 16l-7.8 4.8z" fill="currentColor" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+      <circle cx="27.5" cy="16" r="3.2" fill="var(--primary)" />
     </svg>
   );
 }

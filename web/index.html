@@ -7,11 +7,17 @@
 <meta name="description" content="Write and run code in 20+ languages, right in your browser.">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <script>
-  try { const t = localStorage.getItem('rv-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  // Always set a theme before first paint: the saved choice, or the system's.
+  (function () {
+    var t = null;
+    try { t = JSON.parse(localStorage.getItem('rv-theme')); } catch (e) { try { t = localStorage.getItem('rv-theme'); } catch (e2) {} }
+    if (t !== 'light' && t !== 'dark') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    document.documentElement.dataset.theme = t;
+  })();
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 </head>
 <body>
 <div id="root"></div>

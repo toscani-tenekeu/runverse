@@ -2,6 +2,7 @@
 // The app never listens on a port: each request (the address bar, a link, a form, a fetch()
 // from the page) runs it once in the sandbox, and the page it returns is shown here.
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState, type FormEvent } from 'react';
+import { ChevronLeft, ChevronRight, Loader2, RotateCw } from 'lucide-react';
 import { runCode, type Code, type CodeFile, type HttpResponse } from './api';
 import { injectBridge, inlineAssets, type LogLine } from './WebPreview';
 
@@ -279,43 +280,40 @@ export const ServerPreview = forwardRef<ServerPreviewHandle, Props>(function Ser
 
   const json = shown && /json/i.test(shown.type) ? prettyJson(shown.body) : null;
 
+  const icon = 'text-muted-foreground hover:text-foreground hover:bg-accent inline-flex size-6 shrink-0 items-center justify-center rounded disabled:opacity-40 [&_svg]:size-3.5';
+  const out = 'h-full overflow-auto bg-background p-3 font-mono text-[12.5px] whitespace-pre-wrap';
+
   return (
-    <div className="server-preview">
-      <form className="address" onSubmit={submit}>
-        <button type="button" className="icon-btn" aria-label="Back" title="Back" disabled={h.at === 0 || pending} onClick={() => move(-1)}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
-        </button>
-        <button type="button" className="icon-btn" aria-label="Forward" title="Forward" disabled={h.at >= h.list.length - 1 || pending} onClick={() => move(1)}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
-        </button>
-        <button type="button" className="icon-btn" aria-label="Reload" title="Reload (Ctrl+Enter)" disabled={pending} onClick={() => void navigate('GET', address, undefined, undefined, false)}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8" /><path d="M21 3v5h-5" /></svg>
-        </button>
-        <label className="address-field">
-          <span className="address-host" aria-hidden="true">localhost</span>
-          <input value={typed} onChange={e => setTyped(e.target.value)} aria-label="Address" spellCheck={false} autoComplete="off" />
+    <div className="flex h-full min-h-0 flex-col">
+      <form className="bg-chrome flex h-8 shrink-0 items-center gap-0.5 border-b px-1.5" onSubmit={submit}>
+        <button type="button" className={icon} aria-label="Back" title="Back" disabled={h.at === 0 || pending} onClick={() => move(-1)}><ChevronLeft /></button>
+        <button type="button" className={icon} aria-label="Forward" title="Forward" disabled={h.at >= h.list.length - 1 || pending} onClick={() => move(1)}><ChevronRight /></button>
+        <button type="button" className={icon} aria-label="Reload" title="Reload (Ctrl+Enter)" disabled={pending} onClick={() => void navigate('GET', address, undefined, undefined, false)}><RotateCw /></button>
+        <label className="bg-background focus-within:ring-ring/50 mx-1 flex h-6 min-w-0 flex-1 items-center rounded border px-2 font-mono text-[12px] focus-within:ring-2">
+          <span className="text-muted-foreground" aria-hidden="true">localhost</span>
+          <input className="min-w-0 flex-1 bg-transparent outline-none" value={typed} onChange={e => setTyped(e.target.value)} aria-label="Address" spellCheck={false} autoComplete="off" />
         </label>
         {shown && !pending && (
-          <span className={`address-status ${shown.status < 400 ? 'ok' : 'bad'}`} title={`${shown.ms} ms`}>{shown.status}</span>
+          <span className={`rounded px-1.5 font-mono text-[11px] ${shown.status < 400 ? 'text-ok bg-ok/10' : 'text-destructive bg-destructive/10'}`} title={`${shown.ms} ms`}>{shown.status}</span>
         )}
-        {pending && <span className="address-status muted">…</span>}
+        {pending && <Loader2 className="text-muted-foreground size-3.5 animate-spin" aria-label="Loading" />}
       </form>
-      <div className="server-view">
+      <div className="min-h-0 flex-1">
         {error ? (
-          <pre className="out err">{error}</pre>
+          <pre className={`${out} text-destructive`}>{error}</pre>
         ) : !shown ? (
-          <pre className="out muted">Starting the app…</pre>
+          <pre className={`${out} text-muted-foreground`}>Starting the app…</pre>
         ) : shown.doc !== null ? (
           <iframe
             ref={frame}
-            className="preview-frame"
+            className="block size-full border-0 bg-white"
             title="Preview"
             // No allow-same-origin: the page can't reach Runverse's cookies or storage.
             sandbox="allow-scripts allow-modals allow-forms allow-popups"
             srcDoc={shown.doc}
           />
         ) : (
-          <pre className="out">{json ?? shown.body}</pre>
+          <pre className={out}>{json ?? shown.body}</pre>
         )}
       </div>
     </div>
