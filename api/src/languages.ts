@@ -1,8 +1,14 @@
+import { frameworks } from './frameworks.js';
+
 // One entry per language shown on the landing page.
 // `pkg` is the Piston package to install, `runtime` the Piston language used to execute.
 export interface Language {
   id: string;
   name: string;
+  group: 'language' | 'framework';
+  // Frameworks: 'browser' runs in the visitor's browser, 'server' answers requests through Piston.
+  kind?: 'browser' | 'server';
+  base?: string; // the language a framework is written in, shown next to its name
   pkg: string; // '' runs in the browser; 'custom:<name>' is built by piston-packages/<name>.sh
   runtime: string;
   file: string;
@@ -11,7 +17,7 @@ export interface Language {
   files?: { name: string; content: string }[];
 }
 
-export const LANGUAGES: Language[] = [
+export const LANGUAGES: Language[] = ([
   {
     id: 'c', name: 'C', pkg: 'gcc', runtime: 'c', file: 'main.c', mode: 'cpp',
     template: '#include <stdio.h>\n\nint main(void) {\n    printf("Hello, Runverse!\\n");\n    return 0;\n}\n',
@@ -108,7 +114,7 @@ export const LANGUAGES: Language[] = [
     id: 'sqlite', name: 'SQLite', pkg: 'sqlite3', runtime: 'sqlite3', file: 'main.sql', mode: 'sql',
     template: "CREATE TABLE greetings (text TEXT);\nINSERT INTO greetings VALUES ('Hello, Runverse!');\nSELECT text FROM greetings;\n",
   },
-];
+] as Omit<Language, 'group'>[]).map(l => ({ ...l, group: 'language' as const }));
 
 // HTML, CSS and JavaScript run in the visitor's browser, in a sandboxed preview frame.
 const WEB_FILES = [
@@ -126,9 +132,11 @@ const WEB_FILES = [
   },
   ];
 LANGUAGES.push({
-  id: 'web', name: 'HTML, CSS & JS', pkg: '', runtime: '', file: 'index.html', mode: 'html',
+  id: 'web', name: 'HTML, CSS & JS', group: 'language', pkg: '', runtime: '', file: 'index.html', mode: 'html',
   template: WEB_FILES[0].content,
   files: WEB_FILES,
 });
+
+LANGUAGES.push(...frameworks());
 
 export const byId = new Map(LANGUAGES.map(l => [l.id, l]));

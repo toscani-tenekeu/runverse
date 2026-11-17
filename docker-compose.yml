@@ -13,7 +13,8 @@ services:
     environment:
       PISTON_RUN_TIMEOUT: ${RUN_TIMEOUT_MS:-3000}
       PISTON_COMPILE_TIMEOUT: ${COMPILE_TIMEOUT_MS:-10000}
-      PISTON_OUTPUT_MAX_SIZE: 65536
+      # Big enough for a framework's HTML page; plain program output is rarely near it.
+      PISTON_OUTPUT_MAX_SIZE: 2097152
       PISTON_MAX_CONCURRENT_JOBS: ${MAX_CONCURRENT_RUNS:-4} # extra runs wait in a queue
       PISTON_RUN_MEMORY_LIMIT: ${MEMORY_LIMIT_BYTES:-536870912}
       PISTON_COMPILE_MEMORY_LIMIT: -1
@@ -26,7 +27,12 @@ services:
         "scala":{"run_timeout":8000,"run_cpu_time":15000,"compile_timeout":30000,"compile_cpu_time":60000},
         "clojure":{"run_timeout":8000,"run_cpu_time":15000},
         "elixir":{"run_timeout":8000,"run_cpu_time":15000},
-        "zig":{"run_timeout":8000,"run_cpu_time":15000,"compile_timeout":30000,"compile_cpu_time":60000}}
+        "zig":{"run_timeout":8000,"run_cpu_time":15000,"compile_timeout":30000,"compile_cpu_time":60000},
+        "django":{"run_timeout":10000,"run_cpu_time":15000},
+        "flask":{"run_timeout":10000,"run_cpu_time":15000},
+        "fastapi":{"run_timeout":10000,"run_cpu_time":15000},
+        "laravel":{"run_timeout":10000,"run_cpu_time":15000},
+        "express":{"run_timeout":10000,"run_cpu_time":15000}}
     volumes:
       - piston_packages:/piston
     healthcheck:
@@ -71,6 +77,17 @@ services:
     image: alpine:3.20
     profiles: [tools]
     entrypoint: ["/bin/sh", "/build/install.sh"]
+    volumes:
+      - piston_packages:/piston
+      - ./piston-packages:/build:ro
+    networks: [internal]
+
+  # Builds the backend framework packages (Django, Flask, FastAPI, Laravel, Express).
+  # Debian rather than Alpine: the builders run Python and Composer, which need glibc.
+  frameworks:
+    image: debian:12-slim
+    profiles: [tools]
+    entrypoint: ["/bin/bash", "/build/frameworks.sh"]
     volumes:
       - piston_packages:/piston
       - ./piston-packages:/build:ro
