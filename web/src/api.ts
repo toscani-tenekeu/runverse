@@ -1,6 +1,9 @@
 export interface Language {
   id: string;
   name: string;
+  group: 'language' | 'framework';
+  kind?: 'browser' | 'server'; // frameworks: where the project runs
+  base?: string; // the language a framework is written in
   runtime: string;
   file: string;
   mode: string;
@@ -12,10 +15,12 @@ export interface Language {
 
 export interface CodeFile { name: string; content: string }
 export interface Code { language: string; files: CodeFile[]; folders?: string[]; stdin: string }
+export interface HttpRequest { method: string; path: string; headers: Record<string, string>; body: string }
+export interface HttpResponse { status: number; headers: [string, string][]; body: string }
 export type Expiry = '1h' | '1d' | '7d' | '15d' | '20d' | '30d';
 
 export interface Stage { stdout: string; stderr: string; code: number | null; signal: string | null }
-export interface RunResult { run: Stage; compile?: Stage; durationMs: number; version: string }
+export interface RunResult { run: Stage; compile?: Stage; response?: HttpResponse | null; durationMs: number; version: string }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch('/api' + path, {
@@ -30,7 +35,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const getLanguages = () => request<Language[]>('/languages');
-export const runCode = (code: Code) => request<RunResult>('/run', { method: 'POST', body: JSON.stringify(code) });
+export const runCode = (code: Code & { request?: HttpRequest }) => request<RunResult>('/run', { method: 'POST', body: JSON.stringify(code) });
 export const shareCode = ({ code, expiresIn }: { code: Code; expiresIn: Expiry }) =>
   request<{ id: string; expiresAt: number; deleteToken: string }>('/snippets', { method: 'POST', body: JSON.stringify({ ...code, expiresIn }) });
 export const deleteSharedLink = (id: string, token: string) =>
@@ -47,5 +52,5 @@ export const signOut = () => request<unknown>('/auth/logout', { method: 'POST' }
 export const authQuery = { queryKey: ['auth'], queryFn: getAuth, staleTime: 60_000 };
 
 export interface TerminalResult { stdout: string; stderr: string; code: number | null; signal: string | null; cwd: string; durationMs: number }
-export const runTerminal = (body: { files: CodeFile[]; folders: string[]; cwd: string; command: string }) =>
+export const runTerminal = (body: { files: CodeFile[]; folders: string[]; cwd: string; command: string; language?: string }) =>
   request<TerminalResult>('/terminal', { method: 'POST', body: JSON.stringify(body) });

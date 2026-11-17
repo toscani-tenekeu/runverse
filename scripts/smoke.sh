@@ -1,5 +1,5 @@
 #!/bin/bash
-# Run hello-world in every installed language plus a few edge cases.
+# Run hello-world in every installed language and framework, plus a few edge cases.
 # Usage: ./scripts/smoke.sh [base-url]   (default http://localhost:8085)
 set -uo pipefail
 BASE=${1:-http://localhost:8085}
@@ -15,15 +15,23 @@ check() { # name, json body, python expression over the result `r`
   fi
 }
 
-# Every language's own starter template must print "Hello".
+# Every language's own starter template must print "Hello"; every backend framework's
+# starter project must answer its home page.
 for row in $(curl -s "$BASE/api/languages" | python3 -c "
 import json,sys,base64
 for l in json.load(sys.stdin):
-    if l['installed'] and l['version']:  # skip browser-only languages (web)
-        body=json.dumps({'language':l['id'],'files':[{'name':l['file'],'content':l['template']}]})
-        print(base64.b64encode(body.encode()).decode())"); do
-  body=$(echo "$row" | base64 -d)
-  check "$(echo "$body" | python3 -c 'import json,sys;print(json.load(sys.stdin)["language"])')" "$body" "'Hello' in r['run']['stdout']"
+    if l['installed'] and l['version']:  # skip what runs in the browser (web, frontend frameworks)
+        files=l['files'] if l['group']=='framework' else [{'name':l['file'],'content':l['template']}]
+        body=json.dumps({'language':l['id'],'files':files})
+        print(l['group']+':'+base64.b64encode(body.encode()).decode())"); do
+  group=${row%%:*}
+  body=$(echo "${row#*:}" | base64 -d)
+  name=$(echo "$body" | python3 -c 'import json,sys;print(json.load(sys.stdin)["language"])')
+  if [ "$group" = framework ]; then
+    check "$name" "$body" "r['response'] and r['response']['status']==200"
+  else
+    check "$name" "$body" "'Hello' in r['run']['stdout']"
+  fi
 done
 
 check "python stdin" '{"language":"python","files":[{"name":"main.py","content":"print(input()[::-1])"}],"stdin":"abc"}' "r['run']['stdout']=='cba\n'"

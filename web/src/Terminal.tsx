@@ -21,13 +21,16 @@ interface Props {
   onResize: (delta: number) => void;
   files: CodeFile[];
   folders: string[];
-  available: boolean; // Bash is installed on the server
+  available: boolean; // Bash, or the backend framework, is installed on the server
+  // A backend framework's commands (php artisan, python manage.py…) run in its own package.
+  framework?: { id: string; hint: string };
 }
 
 // A command line that runs each command in the server sandbox, with a copy of the workspace files.
-export function Terminal({ mode, onMode, height, onResize, files, folders, available }: Props) {
+export function Terminal({ mode, onMode, height, onResize, files, folders, available, framework }: Props) {
   const [lines, setLines] = useState<Line[]>([
     { kind: 'info', text: 'Each command runs in a sandbox with a copy of your files. There is no network, and files a command creates or changes are not saved back to the editor.' },
+    ...(framework ? [{ kind: 'info' as const, text: framework.hint }] : []),
   ]);
   const [cwd, setCwd] = useState('');
   const [input, setInput] = useState('');
@@ -64,7 +67,7 @@ export function Terminal({ mode, onMode, height, onResize, files, folders, avail
     push([{ kind: 'cmd', text: `${prompt} $ ${command}` }]);
     setRunning(true);
     try {
-      const r = await runTerminal({ files, folders, cwd, command });
+      const r = await runTerminal({ files, folders, cwd, command, language: framework?.id });
       const add: Line[] = [];
       if (r.stdout) add.push({ kind: 'out', text: clip(r.stdout) });
       if (r.stderr) add.push({ kind: 'err', text: clip(r.stderr) });
