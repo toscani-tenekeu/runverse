@@ -16,6 +16,9 @@ import { ImportDialog, ImportReportDialog, SettingsDialog, ShareDialog, formatDa
 import { MAX_FILES as IMPORT_MAX_FILES, MAX_FOLDER_BYTES, formatBytes, readPicked, readWorkspaceZip, setPendingWorkspace, type Skipped } from './import';
 import { rememberLink } from './links';
 import { WebPreview, buildDocument, type LogLine } from './WebPreview';
+import { buildFrameworkDocument } from './bundler';
+import { modeForFile } from './modes';
+import { ServerPreview, type ServerPreviewHandle } from './ServerPreview';
 
 let nextKey = 0;
 const toTabs = (code: Code): FileTab[] => code.files.map(f => ({ key: String(nextKey++), ...f }));
@@ -42,9 +45,18 @@ const RAIL_WIDTH = 44;
 const DEFAULT_LAYOUT: Layout = { explorer: 210, side: 400, top: 130, editor: 440 };
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
-const WEB_MODES: Record<string, string> = { html: 'html', htm: 'html', css: 'css', js: 'javascript', mjs: 'javascript' };
+// Web pages and frameworks mix kinds of files, so their highlighting follows each file's extension.
 const modeFor = (lang: Language, file: string) =>
-  lang.id === 'web' ? WEB_MODES[file.slice(file.lastIndexOf('.') + 1).toLowerCase()] ?? '' : lang.mode;
+  lang.id === 'web' || lang.group === 'framework' ? modeForFile(file, lang.mode) : lang.mode;
+
+/** What a backend framework's terminal can do, shown when it opens. */
+const TERMINAL_HINTS: Record<string, string> = {
+  laravel: 'Commands run in this Laravel project, e.g. php artisan route:list',
+  django: 'Commands run in this Django project, e.g. python manage.py check',
+  flask: 'Commands run with Flask installed, e.g. python -c "import flask; print(flask.__version__)"',
+  fastapi: 'Commands run with FastAPI installed, e.g. python -c "import fastapi; print(fastapi.__version__)"',
+  express: 'Commands run with Node.js and Express installed, e.g. node -v',
+};
 
 interface Props {
   lang: Language;
@@ -58,11 +70,16 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
   const navigate = useNavigate();
   const dialog = useDialog();
   const { data: languages = [] } = useQuery(languagesQuery);
-  const isWeb = lang.id === 'web';
+  // Pages and frontend frameworks run in the browser; backend frameworks answer requests from the sandbox.
+  const isWeb = lang.id === 'web' || lang.kind === 'browser';
+  const isServer = lang.kind === 'server';
+  const usesPreview = isWeb || isServer;
+  const serverPreview = useRef<ServerPreviewHandle>(null);
 
   const [files, setFiles] = useState(() => toTabs(initial));
   const [folders, setFolders] = useState<string[]>(initial.folders ?? []);
-  const [active, setActive] = useState(files[0].key);
+  // A framework project opens on the file people edit first (App.vue, routes/web.php…), not index.html.
+  const [active, setActive] = useState(() => (files.find(f => f.name === lang.file) ?? files[0]).key);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [stdin, setStdin] = useState(initial.stdin);
   const [toast, setToast] = useState('');
@@ -95,7 +112,7 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
   const current = files.find(f => f.key === active) ?? files[0];
 
   // Tabs: the files that are open. Whatever becomes the active file gets a tab; deleted files lose theirs.
-  const [openKeys, setOpenKeys] = useState<string[]>(() => [files[0].key]);
+  const [openKeys, setOpenKeys] = useState<string[]>(() => [active]);
   useEffect(() => {
     setOpenKeys(keys => {
       const alive = keys.filter(k => files.some(f => f.key === k));
@@ -135,12 +152,30 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
   // ---- Running ----
   const run = useMutation({ mutationFn: runCode });
   // Web projects run in the browser: rebuild the preview shortly after each edit.
-  const [webDoc, setWebDoc] = useState(() => (isWeb ? buildDocument(code.files) : ''));
+  const isFramework = lang.kind === 'browser';
+  const [webDoc, setWebDoc] = useState(() => (lang.id === 'web' ? buildDocument(code.files) : ''));
   const [webVersion, setWebVersion] = useState(0);
   const [logs, setLogs] = useState<LogLine[]>([]);
+  // Frameworks are compiled, which is asynchronous; a newer build wins over an older one.
+  const buildCount = useRef(0);
+  const rebuild = (reload = false) => {
+    const id = ++buildCount.current;
+    if (!isFramework) {
+      setLogs([]);
+      setWebDoc(buildDocument(code.files));
+      if (reload) setWebVersion(v => v + 1);
+      return;
+    }
+    buildFrameworkDocument(code.files, lang.id).then(result => {
+      if (id !== buildCount.current) return;
+      setLogs(result.errors.map(text => ({ level: 'error' as const, text })));
+      setWebDoc(result.doc);
+      if (reload) setWebVersion(v => v + 1);
+    });
+  };
   useEffect(() => {
     if (!isWeb) return;
-    const t = setTimeout(() => { setLogs([]); setWebDoc(buildDocument(code.files)); }, 500);
+    const t = setTimeout(() => rebuild(), isFramework ? 700 : 500);
     return () => clearTimeout(t);
   }, [isWeb, code.files]);
 
@@ -148,7 +183,8 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
     // The result appears in the output panel, so make sure it is visible.
     setSideOpen(true);
     save(SIDE_OPEN_KEY, true);
-    if (isWeb) { setLogs([]); setWebDoc(buildDocument(code.files)); setWebVersion(v => v + 1); return; }
+    if (isWeb) return rebuild(true);
+    if (isServer) return serverPreview.current?.reload();
     if (!run.isPending) run.mutate(code);
   };
 
@@ -200,8 +236,8 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
     if (files.length >= MAX_FILES) return flash(`${MAX_FILES} files at most.`);
     const name = await dialog.prompt({
       title: folder ? `New file in ${folder}` : 'New file',
-      value: freeName(folder, 'file', isWeb ? '.js' : extOf(lang.file)),
-      hint: 'Use "/" to put it in a folder, like lib/utils' + (isWeb ? '.js' : extOf(lang.file)),
+      value: freeName(folder, 'file', lang.id === 'web' ? '.js' : extOf(lang.file)),
+      hint: 'Use "/" to put it in a folder, like lib/utils' + (lang.id === 'web' ? '.js' : extOf(lang.file)),
       validate: p => validPath(p),
     });
     if (!name) return;
@@ -396,10 +432,14 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
         <label className="picker">
           <span className="sr-only">Language</span>
           <select value={lang.id} onChange={e => navigate({ to: '/editor/$lang', params: { lang: e.target.value } })}>
-            {languages.map(l => (
-              <option key={l.id} value={l.id} disabled={!l.installed}>
-                {l.name}{l.version ? ` ${l.version}` : l.installed ? '' : ' (not installed)'}
-              </option>
+            {(['language', 'framework'] as const).map(group => (
+              <optgroup key={group} label={group === 'language' ? 'Languages' : 'Frameworks'}>
+                {languages.filter(l => l.group === group).map(l => (
+                  <option key={l.id} value={l.id} disabled={!l.installed}>
+                    {l.name}{l.version ? ` ${l.version}` : l.installed ? '' : ' (not installed)'}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </label>
@@ -439,7 +479,7 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
           </div>
           <button className="btn" type="button" onClick={doRun} disabled={run.isPending} title="Run (Ctrl+Enter)">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5.5v13l11-6.5z" fill="currentColor" /></svg>
-            {run.isPending ? 'Running…' : isWeb ? 'Reload' : 'Run'}
+            {run.isPending ? 'Running…' : usesPreview ? 'Reload' : 'Run'}
           </button>
         </div>
       </header>
@@ -471,19 +511,21 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
         <Resizer axis="x" className="desktop-only" label="Resize output panel" onResize={d => resize('side', 260, innerWidth * 0.65)(-d)} />
         <Resizer axis="y" className="mobile-only" label="Resize editor" onResize={resize('editor', 200, 1400)} />
 
-        <section className="side" aria-hidden={!sideOpen} aria-label={isWeb ? 'Preview and console' : 'Input and output'}>
-          {isWeb ? (
+        <section className="side" aria-hidden={!sideOpen} aria-label={usesPreview ? 'Preview and console' : 'Input and output'}>
+          {usesPreview ? (
             <>
               <div className="block preview">
-                <span className="label">Preview</span>
-                <WebPreview doc={webDoc} version={webVersion} onLog={line => setLogs(l => [...l.slice(-199), line])} />
+                <span className="label">Preview{isServer && <small> · runs your app for each page; press Reload after editing</small>}</span>
+                {isServer
+                  ? <ServerPreview ref={serverPreview} code={code} onLog={line => setLogs(l => [...l.slice(-299), line])} />
+                  : <WebPreview doc={webDoc} version={webVersion} onLog={line => setLogs(l => [...l.slice(-199), line])} />}
               </div>
               <Resizer axis="y" label="Resize console" onResize={d => resize('top', 60, 900)(-d)} />
               <div className="block console" style={{ height: 'var(--top-h)' }}>
                 <span className="label">Console {logs.length > 0 && <button type="button" className="linkish" onClick={() => setLogs([])}>Clear</button>}</span>
                 <pre className="out">
-                  {logs.length ? logs.map((l, i) => <span key={i} className={l.level === 'error' ? 'err' : l.level === 'warn' ? 'warn' : ''}>{l.text}{'\n'}</span>)
-                    : <span className="muted">console.log() output shows up here.</span>}
+                  {logs.length ? logs.map((l, i) => <span key={i} className={l.level === 'error' ? 'err' : l.level === 'warn' ? 'warn' : l.level === 'info' ? 'muted' : ''}>{l.text}{'\n'}</span>)
+                    : <span className="muted">{isServer ? 'Requests, and what your app prints, show up here.' : 'console.log() output shows up here.'}</span>}
                 </pre>
               </div>
             </>
@@ -508,7 +550,9 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
 
       <Terminal
         mode={termMode} onMode={changeTermMode} height={termHeight} onResize={resizeTerm}
-        files={code.files} folders={folders} available={languages.some(l => l.id === 'bash' && l.installed)}
+        files={code.files} folders={folders}
+        available={isServer ? lang.installed : languages.some(l => l.id === 'bash' && l.installed)}
+        framework={isServer ? { id: lang.id, hint: TERMINAL_HINTS[lang.id] ?? '' } : undefined}
       />
 
       <footer className="statusbar">

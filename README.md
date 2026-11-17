@@ -6,8 +6,8 @@
 
 **Write. Run. That's it.**
 
-A free, open-source online compiler you can host yourself.<br>
-24 languages plus HTML, CSS & JS, no ads, no sign-up, no tracking.
+A free, open-source code playground for languages and frameworks, that you can host yourself.<br>
+24 languages, HTML, CSS & JS, and 11 frameworks from React to Laravel. No ads, no sign-up, no tracking.
 
 [![Live demo](https://img.shields.io/badge/demo-runverse.kmerhosting.com-F2B630?style=flat-square)](https://runverse.kmerhosting.com)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](https://github.com/toscani-tenekeu/runverse/blob/main/LICENSE)
@@ -26,9 +26,13 @@ A free, open-source online compiler you can host yourself.<br>
 
 - **24 languages**: C, C++, C#, Java, Python, JavaScript, TypeScript, Go, Rust, PHP, Kotlin, Swift, Ruby, Dart, Lua, Bash, R, Haskell, Scala, Elixir, Perl, Clojure, Zig and SQLite
 - **HTML, CSS & JS** with a live preview and console, running safely in a sandboxed frame in the browser
+- **11 frameworks**, each with a starter project you can grow (see [Frameworks](#frameworks)):
+  - frontend, running in your browser: React, Vue, Svelte, Preact, Alpine.js and Tailwind CSS
+  - backend, running in the sandbox: Laravel, Django, Flask, FastAPI and Express
+- **Languages and frameworks side by side**: `/editor` lists both groups, and the picker in the editor groups them too
 - **Files and folders** per project (`lib/utils.py`), with standard input and separate stdout, stderr and compiler output
 - **Import and export**: import files (1 MB each at most), a folder (100 MB at most) or a whole workspace. Export gives a `.zip` that Import can read back. Zip, gzip and other compressed files are refused, and so are non-text files
-- **Terminal**: type shell commands against your files. The panel can be collapsed, expanded or resized, and it needs Bash installed
+- **Terminal**: type shell commands against your files. The panel can be collapsed, expanded or resized, and it needs Bash installed. In a backend framework project it runs that framework's tools, like `php artisan route:list` or `python manage.py check`
 - **Room to code**: open files show as tabs, the Files list and the output can be hidden, and focus mode hides everything but the editor. The status bar shows the cursor position and holds the panel toggles. Font size and line wrapping are in Settings
 - **Keyboard shortcuts**: `Ctrl+Enter` run, `Ctrl+P` go to file, `Ctrl+B` files, `Ctrl+\` output, `Ctrl+.` focus mode, `` Ctrl+` `` terminal, `Ctrl+,` settings (`Cmd` on a Mac)
 - **Share links** that expire after 1 hour, 1, 7, 15, 20 or 30 days, your choice
@@ -36,6 +40,29 @@ A free, open-source online compiler you can host yourself.<br>
 - **Safe by default**: every run is sandboxed by [Piston](https://github.com/engineer-man/piston) with no network, plus time, memory and process limits and per-IP rate limits
 - **Works on phones and tablets**
 - **One command to host**: a single Docker Compose file, and it works offline once languages are installed
+
+## Frameworks
+
+Pick a framework on the start page (`/editor`) or in the editor's picker and you get a small working project: a page, a form and, for backend frameworks, a JSON route. Edit it, add files and folders, share it or export it like any other workspace.
+
+### Frontend: React, Vue, Svelte, Preact, Alpine.js, Tailwind CSS
+
+These run in your browser, in the same sandboxed preview as HTML, CSS & JS, and update as you type.
+
+- Projects use the layout you know from Vite: an `index.html` that loads `/src/main.jsx` (or `main.js`) with `<script type="module">`.
+- `.jsx`, `.tsx` and `.ts` files, Vue single-file components (`.vue`, with `<script setup>` and scoped styles) and Svelte 5 components (`.svelte`) are compiled in the browser. `import './App.css'` adds a stylesheet.
+- Projects can import `react`, `react-dom`, `vue`, `svelte`, `preact`, `alpinejs` and `@tailwindcss/browser`. Runverse serves these itself (`web/vendor/`), so nothing comes from a CDN. Other libraries can still be added to `index.html` with a `<script>` tag from a CDN.
+
+### Backend: Laravel, Django, Flask, FastAPI, Express
+
+These run on the server, in Piston's sandbox, with no network.
+
+- The preview has an address bar. Each page you open, each form you send and each `fetch()` the page makes to the app is one run of your app: Runverse starts it, hands it the request and shows the response. Redirects are followed and cookies are kept between requests, so sessions and CSRF tokens work.
+- Nothing stays running between requests: a database or a file written during a request is gone by the next one. Django projects get a fresh in-memory database with their tables created on each request.
+- Laravel projects only hold the files you change: the rest of the Laravel skeleton (`config/`, `bootstrap/`, `vendor/`…) comes with the framework. Add a file with the same path to override one, for example `config/app.php`.
+- Static files (`public/`, `static/`, `<app>/static/`) are inlined into the page from your workspace.
+- What the app prints, and its errors, show in the console under the preview, with one line per request.
+- Each framework is a Piston package built by `piston-packages/<id>.sh` with its own runtime: Python 3.12 for Django, Flask and FastAPI, a static PHP 8.4 for Laravel, Node.js 22 for Express.
 
 ## Self-host
 
@@ -45,6 +72,7 @@ You need Docker with Compose v2.
 git clone https://github.com/toscani-tenekeu/runverse.git
 cd runverse && docker compose up -d
 ./scripts/languages.sh python cpp java bash   # or: ./scripts/languages.sh all
+./scripts/languages.sh laravel django           # backend frameworks, or: ./scripts/languages.sh frameworks
 ```
 
 Runverse is then live at **http://localhost:8085**, and it asks you to sign in. An admin username and a random password are generated the first time it starts and printed in the log:
@@ -55,10 +83,11 @@ docker compose logs api     # shows "Username: admin" and "Password: …" once
 
 A self-hosted install is just the editor (the landing page isn't included), so `/` opens the editor directly.
 
-- `./scripts/languages.sh` with no arguments lists the language ids. Installing `all` downloads about 10–15 GB.
+- `./scripts/languages.sh` with no arguments lists the language and framework ids. Installing `all` downloads about 10–15 GB, plus about 1 GB for the five backend frameworks.
+- Frontend frameworks (React, Vue, Svelte, Preact, Alpine.js, Tailwind CSS) run in the browser and need nothing installed. Their libraries are served by Runverse itself, so they work offline.
 - C#, Java, Go and JavaScript use current toolchains built by `piston-packages/` (.NET 8, Java 21, the latest Go, Node.js 22), and C/C++ compile as C17/C++20, so modern code (records, generics, concepts…) runs as it does locally. Swift is still 5.3 because newer Swift needs a newer base system than the Piston image.
 - The terminal runs on the Bash language, so install it (`./scripts/languages.sh bash`) if you want the terminal.
-- `./scripts/smoke.sh` runs hello-world in every installed language to check your install.
+- `./scripts/smoke.sh` runs hello-world in every installed language, and the home page of every installed backend framework, to check your install.
 
 ### Sign-in
 
@@ -104,8 +133,9 @@ Installed languages and share links live in Docker volumes, so they survive upda
 
 ```
 browser ──▶ frontend (nginx) ──▶ /           redirects to the editor (landing page if enabled)
-                             ├─▶ /editor/*   React app
-                             └─▶ /api/*  ──▶ api (Node + Fastify) ──▶ piston (sandbox)
+                             ├─▶ /editor/*   React app (builds frontend framework projects itself)
+                             ├─▶ /app/vendor React, Vue, Svelte… served to the preview
+                             └─▶ /api/*  ──▶ api (Node + Fastify) ──▶ piston (sandbox: languages and backend frameworks)
                                                    └─ SQLite (share links)
 ```
 
@@ -117,7 +147,7 @@ browser ──▶ frontend (nginx) ──▶ /           redirects to the editor
 | [`piston/`](piston) | Piston's image with a larger request size limit |
 | [`docker-compose.yml`](docker-compose.yml) | The `frontend`, `api` and `piston` services |
 
-Language metadata (names, starter code, Piston packages) lives in [`api/src/languages.ts`](api/src/languages.ts).
+Language metadata (names, starter code, Piston packages) lives in [`api/src/languages.ts`](api/src/languages.ts), and the frameworks' starter projects in [`api/src/frameworks.ts`](api/src/frameworks.ts). Backend frameworks answer requests through the harnesses in [`api/src/harness.ts`](api/src/harness.ts); frontend projects are built by [`web/src/bundler.ts`](web/src/bundler.ts).
 
 ## Development
 

@@ -17,7 +17,7 @@ const BRIDGE = `<script>(() => {
   addEventListener('unhandledrejection', e => send('error', ['Unhandled promise rejection: ' + (e.reason && e.reason.message || e.reason)]));
 })();<\/script>`;
 
-const resolve = (from: string, ref: string) => {
+export const resolve = (from: string, ref: string) => {
   const parts = from.split('/').slice(0, -1);
   for (const seg of ref.split('/')) {
     if (seg === '..') parts.pop();
@@ -26,14 +26,20 @@ const resolve = (from: string, ref: string) => {
   return parts.join('/');
 };
 
-// Build one HTML document: the first .html file, with project CSS and JS inlined
-// (the sandboxed frame has no server to fetch them from).
-export function buildDocument(files: CodeFile[]) {
-  const page = files.find(f => f.name.endsWith('.html')) ?? files[0];
-  const byName = new Map(files.map(f => [f.name, f.content]));
-  const local = (ref: string) => (/^([a-z]+:|\/\/|\/)/i.test(ref) ? undefined : byName.get(resolve(page.name, ref.split(/[?#]/)[0])));
+/** Puts the console bridge at the top of a page. */
+export function injectBridge(html: string, extra = '') {
+  const bridge = BRIDGE + extra;
+  return /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, m => m + bridge) : bridge + html;
+}
 
-  let html = page.content
+/**
+ * Inlines the project's own stylesheets and scripts into a page: the sandboxed frame has no
+ * server to fetch them from. `lookup` finds the file a URL points to.
+ */
+export function inlineAssets(page: CodeFile, files: CodeFile[], html = page.content, lookup?: (url: string) => string | undefined) {
+  const byName = new Map(files.map(f => [f.name, f.content]));
+  const local = lookup ?? ((ref: string) => (/^([a-z]+:|\/\/|\/)/i.test(ref) ? undefined : byName.get(resolve(page.name, ref.split(/[?#]/)[0]))));
+  return html
     .replace(/<link\b[^>]*\bhref=["']([^"']+)["'][^>]*>/gi, (tag, href) => {
       const css = /stylesheet/i.test(tag) ? local(href) : undefined;
       return css === undefined ? tag : `<style>\n${css.replace(/<\/style/gi, '<\\/style')}\n</style>`;
@@ -42,9 +48,12 @@ export function buildDocument(files: CodeFile[]) {
       const js = local(src);
       return js === undefined ? tag : `<script${before}${after}>\n${js.replace(/<\/script/gi, '<\\/script')}\n</script>`;
     });
+}
 
-  html = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, m => m + BRIDGE) : BRIDGE + html;
-  return html;
+// Build one HTML document: the first .html file, with project CSS and JS inlined.
+export function buildDocument(files: CodeFile[]) {
+  const page = files.find(f => f.name.endsWith('.html')) ?? files[0];
+  return injectBridge(inlineAssets(page, files));
 }
 
 interface Props {

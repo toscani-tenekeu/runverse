@@ -2,6 +2,17 @@
 
 Notable changes to Runverse. Dates are YYYY-MM-DD.
 
+## 2026-11-17
+
+### Added
+- Frameworks next to the languages: React, Vue, Svelte, Preact, Alpine.js and Tailwind CSS run in the browser; Laravel, Django, Flask, FastAPI and Express run in the sandbox, with an address bar in the preview where each request runs the app.
+- `/editor` is a start page with languages and frameworks in two groups, and the editor's picker groups them too.
+- The terminal of a backend framework project runs its tools (`php artisan`, `python manage.py`).
+- `./scripts/languages.sh laravel django flask fastapi express` (or `frameworks`) installs the backend frameworks.
+
+### Changed
+- Piston's output limit is 2 MB, so a framework's pages fit.
+
 ## 2026-11-05
 
 ### Added

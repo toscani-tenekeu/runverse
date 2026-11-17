@@ -8,8 +8,9 @@ const loaders: Record<string, () => Promise<Extension>> = {
   cpp: () => import('@codemirror/lang-cpp').then(m => m.cpp()),
   java: () => import('@codemirror/lang-java').then(m => m.java()),
   python: () => import('@codemirror/lang-python').then(m => m.python()),
-  javascript: () => import('@codemirror/lang-javascript').then(m => m.javascript()),
-  typescript: () => import('@codemirror/lang-javascript').then(m => m.javascript({ typescript: true })),
+  javascript: () => import('@codemirror/lang-javascript').then(m => m.javascript({ jsx: true })),
+  typescript: () => import('@codemirror/lang-javascript').then(m => m.javascript({ jsx: true, typescript: true })),
+  vue: () => import('@codemirror/lang-vue').then(m => m.vue()),
   go: () => import('@codemirror/lang-go').then(m => m.go()),
   rust: () => import('@codemirror/lang-rust').then(m => m.rust()),
   php: () => import('@codemirror/lang-php').then(m => m.php()),
@@ -31,5 +32,14 @@ const loaders: Record<string, () => Promise<Extension>> = {
   perl: () => legacy(import('@codemirror/legacy-modes/mode/perl').then(m => m.perl)),
   clojure: () => legacy(import('@codemirror/legacy-modes/mode/clojure').then(m => m.clojure)),
 };
+
+// Projects with several kinds of files (web pages, frameworks) pick the mode from the extension.
+const BY_EXTENSION: Record<string, string> = {
+  html: 'html', htm: 'html', ejs: 'html', svelte: 'html', css: 'css', vue: 'vue',
+  js: 'javascript', mjs: 'javascript', cjs: 'javascript', jsx: 'javascript', json: 'javascript',
+  ts: 'typescript', tsx: 'typescript', py: 'python', php: 'php', sql: 'sql', sh: 'shell',
+};
+export const modeForFile = (file: string, fallback = '') =>
+  BY_EXTENSION[file.slice(file.lastIndexOf('.') + 1).toLowerCase()] ?? fallback;
 
 export const loadMode = (mode: string): Promise<Extension> => loaders[mode]?.() ?? Promise.resolve([]);

@@ -4,6 +4,7 @@ import { LANGUAGES, byId } from './languages.js';
 import { execute, runtimes, type PistonRuntime } from './piston.js';
 import { COOKIE, isEnabled, checkLogin, initAuth, newSession, username, validSession } from './auth.js';
 import { deleteSnippet, getSnippet, purgeExpired, saveSnippet, type Snippet } from './db.js';
+import { harnessFor, splitResponse, type HttpRequest } from './harness.js';
 
 const RUNS_PER_MINUTE = Number(process.env.RUNS_PER_MINUTE ?? 30);
 const SHARES_PER_HOUR = Number(process.env.SHARES_PER_HOUR ?? 20);
@@ -73,6 +74,18 @@ const codeBody = {
     // Empty folders the user created; folders holding files come from the file paths.
     folders: { type: 'array', maxItems: MAX_FILES, default: [], items: { type: 'string', maxLength: 200, pattern: PATH } },
     stdin: { type: 'string', maxLength: 64 * 1024, default: '' },
+    // Backend frameworks: the HTTP request to hand to the app (the preview's address bar, a link, a form).
+    request: {
+      type: 'object',
+      required: ['method', 'path'],
+      additionalProperties: false,
+      properties: {
+        method: { type: 'string', enum: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'] },
+        path: { type: 'string', minLength: 1, maxLength: 4096, pattern: '^/' },
+        headers: { type: 'object', default: {}, maxProperties: 50, additionalProperties: { type: 'string', maxLength: 8192 } },
+        body: { type: 'string', maxLength: 10 * 1024 * 1024, default: '' },
+      },
+    },
     files: {
       type: 'array',
       minItems: 1,
@@ -94,15 +107,17 @@ const codeBody = {
 const HOUR = 3_600_000, DAY = 24 * HOUR;
 const EXPIRY: Record<string, number> = { '1h': HOUR, '1d': DAY, '7d': 7 * DAY, '15d': 15 * DAY, '20d': 20 * DAY, '30d': 30 * DAY };
 
+const { request: _request, ...shareProperties } = codeBody.properties;
 const shareBody = {
   ...codeBody,
-  properties: { ...codeBody.properties, expiresIn: { type: 'string', enum: Object.keys(EXPIRY), default: '7d' } },
+  properties: { ...shareProperties, expiresIn: { type: 'string', enum: Object.keys(EXPIRY), default: '7d' } },
 } as const;
 
 // Shared checks for /run and /snippets beyond what the JSON schema covers.
 function checkCode(body: Snippet): string | null {
   if (!byId.has(body.language)) return `Unknown language "${body.language}".`;
   const names = new Set(body.files.map(f => f.name));
+  if (body.files.some(f => f.name.startsWith('__rv_'))) return 'File names starting with __rv_ are reserved by Runverse.';
   if (names.size !== body.files.length) return 'Two files have the same name.';
   const clash = body.files.find(f => names.has(f.name.slice(0, f.name.lastIndexOf('/'))));
   if (clash) return `${clash.name} is inside a folder that has the same name as a file.`;
@@ -147,13 +162,14 @@ app.get('/api/health', async () => ({ ok: true }));
 app.get('/api/languages', async () => {
   const list = await installed();
   return LANGUAGES.map(({ pkg: _pkg, ...l }) => {
+    // Browser languages and frameworks need nothing on the server.
     if (!l.runtime) return { ...l, installed: true, version: null };
     const rt = list.find(r => r.language === l.runtime);
     return { ...l, installed: !!rt, version: rt?.version ?? null };
   });
 });
 
-app.post<{ Body: Snippet }>('/api/run', {
+app.post<{ Body: Snippet & { request?: HttpRequest } }>('/api/run', {
   schema: { body: codeBody },
   config: { rateLimit: { max: RUNS_PER_MINUTE, timeWindow: '1 minute' } },
 }, async (req, reply) => {
@@ -167,15 +183,29 @@ app.post<{ Body: Snippet }>('/api/run', {
 
   const { files, tidy, error: layoutError } = adaptFiles(lang.id, req.body.files);
   if (layoutError) return reply.code(400).send({ message: layoutError });
+
+  // A backend framework answers one HTTP request per run: the harness goes first and reads the request from stdin.
+  const harness = harnessFor(lang.id);
+  const request = harness ? req.body.request ?? { method: 'GET', path: '/', headers: {}, body: '' } : null;
   const started = Date.now();
   const result = await execute({
     language: rt.language,
     version: rt.version,
-    files,
-    stdin: req.body.stdin, // time and memory limits come from Piston's config (docker-compose.yml)
+    files: harness ? [harness, ...files] : files,
+    stdin: request ? JSON.stringify(request) : req.body.stdin, // time and memory limits come from Piston's config (docker-compose.yml)
   });
   const pick = (s?: typeof result.run) => s && { stdout: tidy(s.stdout), stderr: tidy(s.stderr), code: s.code, signal: s.signal };
-  return { run: pick(result.run), compile: pick(result.compile), durationMs: Date.now() - started, version: rt.version };
+  if (!harness) {
+    return { run: pick(result.run), compile: pick(result.compile), durationMs: Date.now() - started, version: rt.version };
+  }
+  const { log, response } = splitResponse(result.run.stdout);
+  return {
+    run: { ...pick(result.run)!, stdout: log },
+    compile: pick(result.compile),
+    response,
+    durationMs: Date.now() - started,
+    version: rt.version,
+  };
 });
 
 // A terminal command: run one line of bash in the same sandbox as /run, with a copy of the workspace files.
@@ -190,18 +220,28 @@ const terminalBody = {
     folders: codeBody.properties.folders,
     cwd: { type: 'string', maxLength: 200, default: '', pattern: `^(${PATH.slice(1, -1)})?$` },
     command: { type: 'string', minLength: 1, maxLength: 4000 },
+    // A backend framework's terminal runs in that framework's package, so "php artisan" or "python manage.py" work.
+    language: { type: 'string', maxLength: 32 },
   },
 } as const;
 
-app.post<{ Body: { files: Snippet['files']; folders?: string[]; cwd: string; command: string } }>('/api/terminal', {
+app.post<{ Body: { files: Snippet['files']; folders?: string[]; cwd: string; command: string; language?: string } }>('/api/terminal', {
   schema: { body: terminalBody },
   config: { rateLimit: { max: RUNS_PER_MINUTE, timeWindow: '1 minute' } },
 }, async (req, reply) => {
   const { files, folders = [], cwd, command } = req.body;
   const error = checkCode({ language: 'bash', files, folders, stdin: '' });
   if (error) return reply.code(400).send({ message: error });
-  const rt = (await installed()).find(r => r.language === 'bash');
-  if (!rt) return reply.code(400).send({ message: 'The terminal needs Bash, which is not installed on this server. Run ./scripts/languages.sh bash' });
+  const framework = req.body.language ? byId.get(req.body.language) : undefined;
+  const runtime = framework?.kind === 'server' ? framework.runtime : 'bash';
+  const rt = (await installed()).find(r => r.language === runtime);
+  if (!rt) {
+    return reply.code(400).send({
+      message: runtime === 'bash'
+        ? 'The terminal needs Bash, which is not installed on this server. Run ./scripts/languages.sh bash'
+        : `${framework!.name} is not installed on this server.`,
+    });
+  }
 
   // Folder names only contain letters, digits, dot, dash, underscore and "/" (checked above), so quoting them is safe.
   const q = (v: string) => `'${v}'`;
