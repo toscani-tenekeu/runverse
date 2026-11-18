@@ -18,6 +18,8 @@ A free, open-source code playground for languages and frameworks, that you can h
 
 [Try it](https://runverse.kmerhosting.com/editor) | [Self-host](#self-host) | [Report a bug](https://github.com/toscani-tenekeu/runverse/issues/new) | [Donate](https://camerpay.biz/l/iagsxtl8mp)
 
+<img src="docs/editor-dark.png" alt="The Runverse editor: file explorer, code, output and terminal" width="900">
+
 </div>
 
 ---
@@ -43,11 +45,15 @@ A free, open-source code playground for languages and frameworks, that you can h
 
 ## Frameworks
 
+<img src="docs/start.png" alt="The start page: languages and frameworks" width="900">
+
 Pick a framework on the start page (`/editor`) or in the editor's picker and you get a small working project: a page, a form and, for backend frameworks, a JSON route. Edit it, add files and folders, share it or export it like any other workspace.
 
 ### Frontend: React, Vue, Svelte, Preact, Alpine.js, Tailwind CSS
 
 These run in your browser, in the same sandboxed preview as HTML, CSS & JS, and update as you type.
+
+<img src="docs/frameworks-dark.png" alt="A Vue project with its live preview" width="900">
 
 - Projects use the layout you know from Vite: an `index.html` that loads `/src/main.jsx` (or `main.js`) with `<script type="module">`.
 - `.jsx`, `.tsx` and `.ts` files, Vue single-file components (`.vue`, with `<script setup>` and scoped styles) and Svelte 5 components (`.svelte`) are compiled in the browser. `import './App.css'` adds a stylesheet.
@@ -56,6 +62,8 @@ These run in your browser, in the same sandboxed preview as HTML, CSS & JS, and 
 ### Backend: Laravel, Django, Flask, FastAPI, Express
 
 These run on the server, in Piston's sandbox, with no network.
+
+<img src="docs/backend.png" alt="An Express project with the preview's address bar and request log" width="900">
 
 - The preview has an address bar. Each page you open, each form you send and each `fetch()` the page makes to the app is one run of your app: Runverse starts it, hands it the request and shows the response. Redirects are followed and cookies are kept between requests, so sessions and CSRF tokens work.
 - Nothing stays running between requests: a database or a file written during a request is gone by the next one. Django projects get a fresh in-memory database with their tables created on each request.
