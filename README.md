@@ -16,7 +16,7 @@ A free, open-source code playground for languages and frameworks, that you can h
 [![React](https://img.shields.io/badge/react-19-61DAFB?style=flat-square&logo=react&logoColor=black)](web)
 [![Bun](https://img.shields.io/badge/built%20with-bun-000000?style=flat-square&logo=bun&logoColor=white)](web)
 
-[Try it](https://runverse.kmerhosting.com/editor) | [Self-host](#self-host) | [Report a bug](https://github.com/toscani-tenekeu/runverse/issues/new) | [Donate](https://camerpay.biz/l/iagsxtl8mp)
+[Try it](https://runverse.kmerhosting.com/editor) | [Self-host](#self-host) | [Report a bug](https://github.com/toscani-tenekeu/runverse/issues/new)
 
 <img src="docs/editor-dark.png" alt="The Runverse editor: file explorer, code, output and terminal" width="900">
 
