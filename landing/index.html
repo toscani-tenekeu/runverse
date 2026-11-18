@@ -192,11 +192,13 @@ h2{font-size:clamp(2rem,4.2vw,3.5rem);line-height:1.02;letter-spacing:-.03em}
 .rails{border-top:1px solid var(--line)}
 .rail{overflow:hidden;border-bottom:1px solid var(--line)}
 .rail-track{display:flex;width:max-content;list-style:none;margin:0;padding:0;will-change:transform}
-.lang{
+.lang{border-right:1px solid var(--line)}
+.lang-go{
   display:flex;flex-direction:column;align-items:center;gap:14px;
   min-width:clamp(150px,15vw,200px);padding:clamp(24px,4vh,36px) 24px;
-  border-right:1px solid var(--line);cursor:default;
+  color:inherit;text-decoration:none;cursor:pointer;
 }
+.lang-go:focus-visible{outline:2px solid var(--accent);outline-offset:-6px;border-radius:12px}
 .lang .tile{width:clamp(76px,8vw,104px);transition:transform .5s var(--ease),box-shadow .5s var(--ease)}
 .lang:hover .tile{transform:translateY(-8px) rotate(-5deg);box-shadow:0 0 0 1.5px var(--accent),0 22px 34px -18px rgba(8,18,38,.5)}
 .name{font-weight:600;font-size:1.08rem;line-height:1.2;text-align:center}
@@ -804,7 +806,7 @@ window.RV_ICONS = {"html": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3
     const half = Math.ceil(LANGS.length / 2);
     const list = r.dataset.list === 'frameworks' ? FRAMEWORKS : LANGS.slice(langRail * half, ++langRail * half);
     track.innerHTML = list.map(l => `
-      <li class="lang" data-tip="${esc(l.tip)}">${tileHTML(l)}<span class="name">${esc(l.name)}</span><span class="ext">${l.ext}</span></li>`).join('');
+      <li class="lang" data-tip="${esc(l.tip)}"><a class="lang-go" href="${EDITOR_URL(l.editor || l.id)}" aria-label="Open the ${esc(l.name)} editor">${tileHTML(l)}<span class="name">${esc(l.name)}</span><span class="ext">${l.ext}</span></a></li>`).join('');
     return { track, dir: +r.dataset.dir, x: null, sec: r.closest('section') };
   });
   guardIcons(langSec);
@@ -825,6 +827,8 @@ window.RV_ICONS = {"html": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3
   for (const sec of [langSec, fwSec]) {
     sec.addEventListener('pointerover', e => { const li = e.target.closest('.lang'); li ? showTip(li) : tip.classList.remove('show'); });
     sec.addEventListener('pointerleave', () => tip.classList.remove('show'));
+    sec.addEventListener('focusin', e => { const li = e.target.closest('.lang'); if (li) showTip(li); });
+    sec.addEventListener('focusout', () => tip.classList.remove('show'));
   }
   addEventListener('scroll', () => tip.classList.remove('show'), { passive: true });
 
