@@ -470,8 +470,8 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
     { id: 'terminal', label: 'Toggle terminal', icon: <PanelBottom />, shortcut: 'Ctrl+`', run: toggleTerminal },
     { id: 'focus', label: focus ? 'Leave focus mode' : 'Focus mode', icon: <Focus />, shortcut: `${mod}+.`, run: toggleFocus },
     { id: 'theme', label: dark ? 'Light theme' : 'Dark theme', icon: dark ? <Sun /> : <Moon />, run: () => setTheme(dark ? 'light' : 'dark') },
-    { id: 'import', label: 'Import files, a folder or a workspace…', icon: <Upload />, run: () => setImportOpen(true) },
-    { id: 'export', label: 'Export workspace as .zip', icon: <Download />, run: exportZip },
+    { id: 'import', label: 'Import files, a folder or a workspace…', icon: <Download />, run: () => setImportOpen(true) },
+    { id: 'export', label: 'Export workspace as .zip', icon: <Upload />, run: exportZip },
     ...EXPIRIES.map(x => ({ id: `share-${x.id}`, label: `Share a link for ${x.label}`, icon: <Share2 />, run: () => share.mutate({ code, expiresIn: x.id }) })),
     { id: 'reset', label: 'Start over from the example', icon: <RotateCcw />, run: reset },
     { id: 'settings', label: 'Settings', icon: <SettingsIcon />, shortcut: `${mod}+,`, run: () => setSettingsOpen(true) },
@@ -628,8 +628,8 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
 
           <div className="hidden items-center md:flex">
             <TitleAction label="Start over from the example" onClick={reset}><RotateCcw /></TitleAction>
-            <TitleAction label="Import" onClick={() => setImportOpen(true)}><Upload /></TitleAction>
-            <TitleAction label="Export workspace as .zip" onClick={exportZip}><Download /></TitleAction>
+            <TitleAction label="Import" onClick={() => setImportOpen(true)}><Download /></TitleAction>
+            <TitleAction label="Export workspace as .zip" onClick={exportZip}><Upload /></TitleAction>
             <ShareMenu pending={share.isPending} onShare={id => share.mutate({ code, expiresIn: id })} />
           </div>
           <DropdownMenu>
@@ -637,8 +637,8 @@ export function Workspace({ lang, initial, persist, expiresAt }: Props) {
               <Button variant="ghost" size="icon-xs" className="md:hidden" aria-label="More"><Ellipsis /></Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuItem onSelect={() => setImportOpen(true)}><Upload />Import…</DropdownMenuItem>
-              <DropdownMenuItem onSelect={exportZip}><Download />Export as .zip</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setImportOpen(true)}><Download />Import…</DropdownMenuItem>
+              <DropdownMenuItem onSelect={exportZip}><Upload />Export as .zip</DropdownMenuItem>
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger><Share2 />Share a link</DropdownMenuSubTrigger>
                 <DropdownMenuSubContent>
