@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { ChevronDown, Maximize2, Minimize2, Trash2 } from 'lucide-react';
+import { ChevronDown, Info, Maximize2, Minimize2, Trash2 } from 'lucide-react';
 import { runTerminal, type CodeFile } from './api';
 import { PanelAction } from './workbench/PanelAction';
 import { cn } from '@/lib/utils';
@@ -31,10 +31,8 @@ interface Props {
 
 // A command line that runs each command in the server sandbox, with a copy of the workspace files.
 export function Terminal({ visible, maximized, onMaximize, onClose, files, folders, available, framework }: Props) {
-  const [lines, setLines] = useState<Line[]>([
-    { kind: 'info', text: 'Each command runs in a sandbox with a copy of your files. There is no network, and files a command creates or changes are not saved back to the editor.' },
-    ...(framework ? [{ kind: 'info' as const, text: framework.hint }] : []),
-  ]);
+  const [lines, setLines] = useState<Line[]>([]);
+  const [showInfo, setShowInfo] = useState(false);
   const [cwd, setCwd] = useState('');
   const [input, setInput] = useState('');
   const [running, setRunning] = useState(false);
@@ -98,7 +96,14 @@ export function Terminal({ visible, maximized, onMaximize, onClose, files, folde
         <PanelAction label="Clear (Ctrl+L)" onClick={() => setLines([])}><Trash2 /></PanelAction>
         <PanelAction label={maximized ? 'Restore panel size' : 'Maximize panel'} onClick={onMaximize}>{maximized ? <Minimize2 /> : <Maximize2 />}</PanelAction>
         <PanelAction label="Hide terminal (Ctrl+`)" onClick={onClose}><ChevronDown /></PanelAction>
+        <PanelAction label="About this terminal" pressed={showInfo} onClick={() => setShowInfo(v => !v)}><Info /></PanelAction>
       </div>
+      {showInfo && (
+        <div className="text-muted-foreground border-border mx-3 mb-1 space-y-1 rounded border px-2 py-1.5 text-[11.5px]">
+          <p>Each command runs in a sandbox with a copy of your files. There is no network, and files a command creates or changes are not saved back to the editor.</p>
+          {framework && <p>{framework.hint}</p>}
+        </div>
+      )}
       <div
         ref={scroller}
         className="min-h-0 flex-1 overflow-y-auto px-3 pb-2 font-mono text-[12.5px] leading-[1.55]"
@@ -111,7 +116,7 @@ export function Terminal({ visible, maximized, onMaximize, onClose, files, folde
             <input
               ref={field} value={input} onChange={e => setInput(e.target.value)} onKeyDown={onKey}
               disabled={running} spellCheck={false} autoComplete="off" autoCapitalize="off" aria-label="Command"
-              placeholder={running ? 'Running…' : 'Type a command, e.g. ls'}
+              placeholder={running ? 'Running…' : undefined}
               className="placeholder:text-muted-foreground/60 min-w-0 flex-1 bg-transparent outline-none"
             />
           </label>
